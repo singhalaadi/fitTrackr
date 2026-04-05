@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Layout from "../components/common/Layout";
 import Card from "../components/common/Card";
 import { 
   Calendar, 
   Search, 
-  ChevronRight, 
   Clock, 
   Dumbbell, 
   ChevronDown, 

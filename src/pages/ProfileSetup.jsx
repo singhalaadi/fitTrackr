@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../contexts/UserContext";
 import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
 import Button from "../components/common/Button";
-import Card from "../components/common/Card";
 import {
-  Trophy,
-  Target,
   Flame,
   Zap,
   ArrowRight,
@@ -16,7 +13,6 @@ import {
   Camera,
   UploadCloud,
   CheckCircle2,
-  Trash2,
   ChevronLeft
 } from "lucide-react";
 
@@ -72,7 +68,6 @@ export default function ProfileSetup() {
 
   useEffect(() => {
     if (heightFt && heightIn !== "") {
-      // Force absolute values to prevent '-7' type bugs
       const ft = Math.abs(parseInt(heightFt)) || 0;
       const inch = Math.abs(parseInt(heightIn)) || 0;
 
@@ -88,7 +83,6 @@ export default function ProfileSetup() {
           setBmi(null);
         }
 
-        // Standard healthy BMI range: 18.5 - 25.0
         const minW = 18.5 * (heightM * heightM);
         const maxW = 25.0 * (heightM * heightM);
         setIdealRange({ min: minW.toFixed(1), max: maxW.toFixed(1) });

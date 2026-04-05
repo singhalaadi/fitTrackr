@@ -5,8 +5,7 @@ import Button from "../components/common/Button";
 import { 
   Trophy, 
   Activity, 
-  TrendingUp, 
-  Calendar,
+  TrendingUp,
   Flame,
   Zap,
   ArrowRight
@@ -24,7 +23,6 @@ export default function Dashboard() {
   const { userData, loading, updateProfile } = useUser();
   const navigate = useNavigate();
 
-  // Derived Healthy Weight Range (Standard BMI 18.5 - 25.0)
   const getHealthyRange = () => {
     if (!userData?.heightFt) return null;
     const ft = Math.abs(parseInt(userData.heightFt)) || 0;
@@ -47,7 +45,6 @@ export default function Dashboard() {
       navigate("/onboarding");
     }
 
-    // Set up real-time listener for foreground notifications
     if (userData?.profileComplete) {
       onMessageListener().catch(err => {});
     }
@@ -101,25 +98,19 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Calculate Stats
   const totalWorkouts = workouts.length;
   
-  // Total KG (Sum of weights, not volume)
   const totalWeight = workouts.reduce((acc, w) => 
     acc + w.exercises.reduce((exAcc, ex) => 
       exAcc + ex.sets.reduce((sAcc, s) => sAcc + parseFloat(s.weight || 0), 0), 0), 0);
 
-  // Peak Strength (Max weight ever)
   const peakStrength = workouts.reduce((acc, w) => {
     const sessionPeak = Math.max(...w.exercises.flatMap(ex => ex.sets.map(s => parseFloat(s.weight || 0))), 0);
     return Math.max(acc, sessionPeak);
   }, 0);
-
-  // Active Hours (approx 15m per unique exercise)
   const totalExercises = workouts.reduce((acc, w) => acc + w.exercises.length, 0);
   const estimatedActiveHours = (totalExercises * 15) / 60;
   
-  // Energy Burn (Dynamic logic)
   const totalReps = workouts.reduce((acc, w) => 
     acc + w.exercises.reduce((exAcc, ex) => 
       exAcc + ex.sets.reduce((sAcc, s) => sAcc + parseInt(s.reps || 0), 0), 0), 0);
@@ -135,7 +126,6 @@ export default function Dashboard() {
     { day: "Sun", weight: 0, peakWeight: 0, topEx: "", cal: 0, reps: 0 },
   ];
 
-  // Population Logic (Last 7 Days vs Previous 7 Days)
   const now = new Date();
   const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const last14Days = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -155,14 +145,12 @@ export default function Dashboard() {
     ? ((currWeekLoad - prevWeekLoad) / prevWeekLoad * 100).toFixed(1) 
     : (currWeekLoad > 0 ? "100" : "0.0");
 
-  // Populate Weekly Chart Logic
   const todayDate = new Date();
   const dayOfWeek = todayDate.getDay();
   const diffDate = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const startOfWeek = new Date(todayDate.setDate(diffDate));
   startOfWeek.setHours(0, 0, 0, 0);
 
-  // Performance Insights (Same day same exercise)
   const getGains = () => {
     const gains = [];
     const today = new Date();
@@ -232,7 +220,6 @@ export default function Dashboard() {
   const hasData = workouts.length > 0;
   const maxWeeklyPeak = Math.max(...weeklyData.map(d => d.peakWeight)) || 1;
 
-  // Calculate PRs (All-time vs Month)
   const getPRs = () => {
     const allTime = {};
     const thisMonth = {};

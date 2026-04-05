@@ -1,5 +1,3 @@
-import React from "react";
-
 const variants = {
   primary: "bg-gradient-to-br from-primary to-primary-container text-on-primary hover:opacity-90",
   secondary: "bg-surface-variant/40 text-on-background border border-outline-variant hover:bg-surface-variant/60",

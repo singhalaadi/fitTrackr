@@ -1,26 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800&family=Manrope:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-background: #09090b; /* Zinc 950 (More deep/neutral) */
+  --color-background: #09090b; 
   --color-on-background: #fafafa;
   
-  --color-primary: #f97316; /* Tailwind Orange 500 (Durable, not neon) */
-  --color-primary-container: #ea580c; /* Orange 600 */
+  --color-primary: #f97316; 
+  --color-primary-container: #ea580c; 
   --color-on-primary: #ffffff;
   
-  --color-secondary: #fdba74; /* Orange 300 (Softer accent) */
+  --color-secondary: #fdba74; 
   --color-secondary-container: #431407;
   --color-on-secondary: #fed7aa;
   
   --color-tertiary: #a1a1aa;
   --color-tertiary-container: #27272a;
   
-  --color-surface: #18181b; /* Zinc 900 */
+  --color-surface: #18181b; 
   --color-surface-container-low: #141417;
   --color-surface-container-high: #27272a;
   --color-surface-container-highest: #3f3f46;
-  --color-surface-variant: #d4d4d8; /* Zinc 300 for high visibility on small text */
-  --color-on-surface-variant: #f4f4f5; /* Zinc 100 for maximum readability */
+  --color-surface-variant: #d4d4d8; 
+  --color-on-surface-variant: #f4f4f5; 
   
   --color-outline: #52525b;
   --color-outline-variant: rgba(82, 82, 91, 0.2);
@@ -33,8 +34,6 @@
 }
 
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800&family=Manrope:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-
   :root {
     background-color: var(--color-background);
     color: var(--color-on-background);
@@ -49,13 +48,11 @@
     @apply font-display tracking-tight font-bold lg:font-extrabold;
   }
 
-  /* Improved Placeholders (Accessible/Visible) */
   input::placeholder {
-    color: #a1a1aa !important; /* Zinc 400 */
+    color: #a1a1aa !important; 
     opacity: 1;
   }
 
-  /* Gym-First UX Utilities */
   .tap-target-lg {
     @apply min-h-[56px] min-w-[56px] flex items-center justify-center p-4;
   }
@@ -72,7 +69,6 @@
     @apply shadow-[0_0_60px_-15px_rgba(249,115,22,0.15)];
   }
 
-  /* Drifting Icons Animation (Enhanced Visibility) */
   @keyframes drift {
     0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
     10% { opacity: 0.15; }
@@ -86,7 +82,6 @@
     animation: drift 15s infinite linear;
   }
 
-  /* Hide scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     background: transparent;

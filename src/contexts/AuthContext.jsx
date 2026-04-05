@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { auth, googleProvider, db } from "../config/firebase";
 import { 
   onAuthStateChanged, 
@@ -24,7 +24,6 @@ export function AuthProvider({ children }) {
     const res = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(res.user, { displayName: name });
     
-    // Create initial firestore document
     await setDoc(doc(db, "users", res.user.uid), {
       name,
       email,

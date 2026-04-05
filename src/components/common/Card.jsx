@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function Card({ children, className = "", noPadding = false, ...props }) {
   return (
     <div
@@ -12,6 +10,6 @@ export default function Card({ children, className = "", noPadding = false, ...p
       {...props}
     >
       {children}
-    </div>
+    </div>  
   );
 }

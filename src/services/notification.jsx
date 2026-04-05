@@ -1,5 +1,5 @@
 import { getToken, onMessage } from "firebase/messaging";
-import { messaging } from "../config/firebase";
+import { messaging, firebaseConfig } from "../config/firebase";
 import toast from "react-hot-toast";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
@@ -13,8 +13,19 @@ export const requestNotificationPermission = async () => {
         }
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
+            const swUrl = `/firebase-messaging-sw.js?` + 
+                `apiKey=${encodeURIComponent(firebaseConfig.apiKey)}` +
+                `&authDomain=${encodeURIComponent(firebaseConfig.authDomain)}` +
+                `&projectId=${encodeURIComponent(firebaseConfig.projectId)}` +
+                `&storageBucket=${encodeURIComponent(firebaseConfig.storageBucket)}` +
+                `&messagingSenderId=${encodeURIComponent(firebaseConfig.messagingSenderId)}` +
+                `&appId=${encodeURIComponent(firebaseConfig.appId)}`;
+
+            const registration = await navigator.serviceWorker.register(swUrl);
+
             const token = await getToken(messaging, { 
-                vapidKey: VAPID_KEY 
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: registration
             });
             return token;
         } else {

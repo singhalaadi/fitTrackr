@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState} from "react";
 import Layout from "../components/common/Layout";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -7,8 +7,6 @@ import {
   Plus, 
   Trash2, 
   CheckCircle2, 
-  MoreVertical, 
-  History,
   Dumbbell,
   Timer
 } from "lucide-react";
