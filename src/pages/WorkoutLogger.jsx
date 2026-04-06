@@ -1,35 +1,51 @@
-import { useState} from "react";
+import { useState, useEffect } from "react";
 import Layout from "../components/common/Layout";
-import Card from "../components/common/Card";
 import Button from "../components/common/Button";
-import { 
-  Play, 
-  Plus, 
-  Trash2, 
-  CheckCircle2, 
+import {
+  Play,
   Dumbbell,
-  Timer
+  Timer,
+  Zap,
+  Leaf
 } from "lucide-react";
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, updateDoc, doc } from "firebase/firestore";
 import toast from "react-hot-toast";
 
+// Modular Components
+import ExerciseCard from "../components/workout/ExerciseCard";
+
+const STORAGE_KEY = "ft_active_session";
+
 export default function WorkoutLogger() {
+  const { currentUser } = useAuth();
   const [isActive, setIsActive] = useState(false);
   const [workoutName, setWorkoutName] = useState("Afternoon Session");
-  const [exercises, setExercises] = useState([
-    { id: 1, name: "Bench Press", sets: [{ reps: 10, weight: 60 }] }
-  ]);
+  const [exercises, setExercises] = useState([]);
+  const [intensity, setIntensity] = useState("MODERATE");
   const [lastEfforts, setLastEfforts] = useState({});
   const [loading, setLoading] = useState(false);
-  const { currentUser } = useAuth();
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    if (isActive && currentUser) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        userId: currentUser.uid,
+        name: workoutName,
+        exercises,
+        intensity,
+        sessionId,
+        updatedAt: Date.now()
+      }));
+    }
+  }, [isActive, workoutName, exercises, intensity, sessionId, currentUser]);
 
   const addExercise = () => {
-    setExercises([...exercises, { 
-      id: Date.now(), 
-      name: "", 
-      sets: [{ reps: 0, weight: 0 }] 
+    setExercises([...exercises, {
+      id: Date.now(),
+      name: "",
+      sets: [{ reps: 0, weight: 0 }]
     }]);
   };
 
@@ -38,27 +54,39 @@ export default function WorkoutLogger() {
   };
 
   const addSet = (exerciseId) => {
-    setExercises(exercises.map(ex => 
-      ex.id === exerciseId 
-        ? { ...ex, sets: [...ex.sets, { reps: 0, weight: 0 }] } 
+    setExercises(exercises.map(ex =>
+      ex.id === exerciseId
+        ? { ...ex, sets: [...ex.sets, { reps: 0, weight: 0 }] }
+        : ex
+    ));
+  };
+
+  const removeSet = (exerciseId, setIdx) => {
+    setExercises(exercises.map(ex =>
+      ex.id === exerciseId
+        ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIdx) }
         : ex
     ));
   };
 
   const updateSet = (exerciseId, setIndex, field, value) => {
-    setExercises(exercises.map(ex => 
-      ex.id === exerciseId 
-        ? { 
-            ...ex, 
-            sets: ex.sets.map((s, i) => i === setIndex ? { ...s, [field]: value } : s) 
-          } 
+    setExercises(exercises.map(ex =>
+      ex.id === exerciseId
+        ? {
+          ...ex,
+          sets: ex.sets.map((s, i) => i === setIndex ? { ...s, [field]: value } : s)
+        }
         : ex
     ));
   };
 
+  const handleExerciseNameChange = (exerciseId, name) => {
+    setExercises(exercises.map(ex => ex.id === exerciseId ? { ...ex, name } : ex));
+    if (name.length > 3) fetchLastEffort(name);
+  };
+
   const fetchLastEffort = async (exName) => {
     if (!exName || exName.length < 3) return;
-    
     try {
       const q = query(
         collection(db, "workouts"),
@@ -66,15 +94,14 @@ export default function WorkoutLogger() {
         orderBy("timestamp", "desc"),
         limit(5)
       );
-      
       const snapshot = await getDocs(q);
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
+      for (const d of snapshot.docs) {
+        const data = d.data();
         const found = data.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
         if (found) {
-            const bestSet = found.sets.reduce((prev, curr) => (parseFloat(curr.weight || 0) > parseFloat(prev.weight || 0) ? curr : prev), found.sets[0]);
-            setLastEfforts(prev => ({ ...prev, [exName.toLowerCase()]: bestSet }));
-            return;
+          const bestSet = found.sets.reduce((prev, curr) => (parseFloat(curr.weight || 0) > parseFloat(prev.weight || 0) ? curr : prev), found.sets[0]);
+          setLastEfforts(prev => ({ ...prev, [exName.toLowerCase()]: bestSet }));
+          return;
         }
       }
     } catch (err) {
@@ -82,59 +109,117 @@ export default function WorkoutLogger() {
     }
   };
 
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const initLogger = async () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          const isToday = new Date(data.updatedAt).toDateString() === new Date().toDateString();
+          if (data.userId === currentUser.uid && isToday) {
+            setExercises(data.exercises);
+            setWorkoutName(data.name);
+            setIntensity(data.intensity || "MODERATE");
+            setSessionId(data.sessionId);
+            setIsActive(true);
+            toast.success("Ready to continue!");
+            return;
+          }
+        } catch (e) {
+          console.error("Error parsing saved session", e);
+        }
+      }
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const q = query(
+        collection(db, "workouts"),
+        where("userId", "==", currentUser.uid),
+        where("timestamp", ">=", now),
+        orderBy("timestamp", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const d = snap.docs[0];
+        const data = d.data();
+        setExercises(data.exercises);
+        setWorkoutName(data.name);
+        setIntensity(data.intensity || "MODERATE");
+        setSessionId(d.id);
+        setIsActive(true);
+        toast.success("Resuming Today's Session!");
+      } else {
+        setExercises([{ id: 1, name: "", sets: [{ reps: 0, weight: 0 }] }]);
+      }
+    };
+
+    initLogger();
+  }, [currentUser]);
+
   const handleFinish = async () => {
     if (exercises.some(ex => !ex.name)) {
       toast.error("Please name all exercises.");
       return;
     }
-    
     setLoading(true);
     try {
-      await addDoc(collection(db, "workouts"), {
+      const workoutData = {
         userId: currentUser.uid,
         name: workoutName,
         exercises,
+        intensity,
         timestamp: serverTimestamp()
-      });
-      toast.success("Workout Recorded!");
+      };
+      if (sessionId) {
+        await updateDoc(doc(db, "workouts", sessionId), workoutData);
+        toast.success("Workout Updated!");
+      } else {
+        const res = await addDoc(collection(db, "workouts"), workoutData);
+        setSessionId(res.id);
+        toast.success("Workout Recorded!");
+      }
+
+      localStorage.removeItem(STORAGE_KEY);
       setIsActive(false);
-      setExercises([]);
     } catch (error) {
-      toast.error("Failed to save workout: " + error.message);
+      toast.error("Failed to save: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCancel = () => {
+    if (window.confirm("Abandon current session data?")) {
+      localStorage.removeItem(STORAGE_KEY);
+      setIsActive(false);
+      setExercises([{ id: 1, name: "", sets: [{ reps: 0, weight: 0 }] }]);
+    }
+  };
+
   return (
     <Layout>
-      <div className={`space-y-8 transition-all duration-500 ${isActive ? "kinetic-glow" : ""}`}>
+      <div className={`space-y-8 transition-all duration-500 pb-12 ${isActive ? "kinetic-glow" : ""}`}>
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isActive ? "bg-primary animate-pulse" : "bg-surface-variant hover:bg-primary transition-colors"}`} />
-              <h1 className="text-5xl font-black italic uppercase tracking-tighter">
+              <div className={`w-1.5 h-6 rounded-full ${isActive ? "bg-primary animate-pulse" : "bg-surface-variant group-hover:bg-primary transition-colors"}`} />
+              <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">
                 Workout <span className="text-secondary italic">Logger</span>
               </h1>
             </div>
-            <p className="text-surface-variant font-label uppercase tracking-widest text-[10px] ml-6 font-bold italic">
-              {isActive ? "WORKOUT IN PROGRESS" : "READY TO START"}
+            <p className="text-[10px] font-label text-surface-variant uppercase tracking-widest ml-4 font-bold italic opacity-60">
+              {isActive ? "ACTIVE SESSION" : "READY TO TRAIN"}
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Button 
-                variant={isActive ? "secondary" : "primary"}
-                onClick={() => setIsActive(!isActive)}
-                className="font-black italic px-8"
-            >
-              {isActive ? "CANCEL" : "START WORKOUT"}
+            <Button variant={isActive ? "secondary" : "primary"} onClick={isActive ? handleCancel : () => setIsActive(true)} className="px-8 font-black italic rounded-2xl h-14">
+              {isActive ? "CANCEL" : "START SESSION"}
             </Button>
             {isActive && (
-              <Button 
-                onClick={handleFinish}
-                disabled={loading}
-                className="font-black italic shadow-lg shadow-primary/20"
-              >
+              <Button onClick={handleFinish} disabled={loading} className="px-8 font-black italic shadow-lg shadow-primary/20 rounded-2xl h-14">
                 {loading ? "SAVING..." : "FINISH"}
               </Button>
             )}
@@ -142,113 +227,67 @@ export default function WorkoutLogger() {
         </header>
 
         {isActive ? (
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 font-bold">
-            <input 
-              type="text"
-              value={workoutName}
-              onChange={(e) => setWorkoutName(e.target.value)}
-              className="bg-transparent border-0 border-b border-white/10 focus:border-primary text-2xl font-black uppercase italic text-primary w-full focus:outline-none transition-colors placeholder:text-surface-variant/30"
-              placeholder="WORKOUT NAME"
-            />
-
-            <div className="space-y-6">
-              {exercises.map((ex, exIdx) => (
-                <Card key={ex.id} className="relative overflow-hidden group border-white/10">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 max-w-sm">
-                        <input 
-                          type="text"
-                          value={ex.name}
-                          onChange={(e) => {
-                            const newExs = [...exercises];
-                            const val = e.target.value;
-                            newExs[exIdx].name = val;
-                            setExercises(newExs);
-                            if (val.length > 3) fetchLastEffort(val);
-                          }}
-                          className="bg-transparent border-0 border-b border-white/10 focus:border-primary text-xl font-bold uppercase w-full focus:outline-none transition-colors placeholder:text-surface-variant/50"
-                          placeholder="EXERCISE NAME"
-                        />
-                        {lastEfforts[ex.name.toLowerCase()] && (
-                            <div className="mt-2 text-[9px] font-label text-primary uppercase tracking-[0.2em] font-black italic animate-in fade-in slide-in-from-left-2 transition-all">
-                                Last Session: {lastEfforts[ex.name.toLowerCase()].weight}KG x {lastEfforts[ex.name.toLowerCase()].reps}
-                            </div>
-                        )}
-                      </div>
-                      <button 
-                        onClick={() => removeExercise(ex.id)}
-                        className="text-surface-variant hover:text-error transition-colors p-2"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4 px-2 text-[10px] font-label text-surface-variant uppercase tracking-widest font-bold">
-                        <span className="text-center">SET</span>
-                        <span className="text-center">WEIGHT (KG)</span>
-                        <span className="text-center">REPS</span>
-                        <span></span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {ex.sets.map((set, setIdx) => (
-                        <div key={setIdx} className="grid grid-cols-4 gap-4 items-center animate-in fade-in slide-in-from-right-2">
-                          <div className="bg-surface-container-high h-12 flex items-center justify-center rounded-xl font-black italic text-lg text-secondary">
-                            {setIdx + 1}
-                          </div>
-                          <input 
-                            type="number"
-                            value={set.weight || ""}
-                            onChange={(e) => updateSet(ex.id, setIdx, 'weight', parseFloat(e.target.value))}
-                            className="bg-surface-container-high h-12 text-center rounded-xl font-black text-xl focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-surface-variant/30"
-                            placeholder="0"
-                          />
-                          <input 
-                            type="number"
-                            value={set.reps || ""}
-                            onChange={(e) => updateSet(ex.id, setIdx, 'reps', parseInt(e.target.value))}
-                            className="bg-surface-container-high h-12 text-center rounded-xl font-black text-xl focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-surface-variant/30"
-                            placeholder="0"
-                          />
-                          <div className="flex justify-center">
-                            <CheckCircle2 className={`w-6 h-6 ${set.reps > 0 ? "text-primary" : "text-surface-variant/20"}`} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button 
-                      onClick={() => addSet(ex.id)}
-                      className="w-full py-4 rounded-xl border-2 border-dashed border-white/5 text-surface-variant hover:border-primary hover:text-primary transition-all font-label uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 font-bold"
-                    >
-                      <Plus className="w-4 h-4" /> ADD SET
-                    </button>
-                  </div>
-                </Card>
-              ))}
+          <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4">
+            {/* Header Settings */}
+            <div className="flex flex-col sm:flex-row gap-6 p-6 bg-surface-container-low/40 rounded-3xl border border-white/5 backdrop-blur-sm">
+              <div className="flex-1 space-y-2">
+                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">Session Name</label>
+                <input
+                  type="text"
+                  value={workoutName}
+                  onChange={(e) => setWorkoutName(e.target.value)}
+                  className="bg-transparent border-0 border-b border-white/10 focus:border-primary text-2xl uppercase italic text-primary w-full focus:outline-none transition-colors placeholder:text-surface-variant/30 font-bold"
+                  placeholder="SESSION NAME"
+                />
+              </div>
+              <div className="space-y-3 w-full sm:w-80">
+                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">Workout Intensity</label>
+                <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 w-full">
+                  <button
+                    onClick={() => setIntensity("LIGHT")}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "LIGHT" ? "bg-primary text-on-primary shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                  >
+                    <Leaf className={`w-3.5 h-3.5 ${intensity === "LIGHT" ? "animate-bounce" : ""}`} /> LIGHT
+                  </button>
+                  <button
+                    onClick={() => setIntensity("HEAVY")}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "HEAVY" ? "bg-secondary text-white shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                  >
+                    <Zap className={`w-3.5 h-3.5 ${intensity === "HEAVY" ? "animate-[pulse_1s_infinite]" : ""}`} /> HEAVY
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <Button 
-                variant="secondary"
-                onClick={addExercise}
-                className="w-full py-6 text-sm font-label uppercase font-black italic gap-3 border-white/5 bg-white/5 hover:bg-white/10"
-            >
+            <div className="space-y-6">
+              {exercises.map((ex) => (
+                <ExerciseCard
+                  key={ex.id}
+                  exercise={ex}
+                  onRemoveExercise={removeExercise}
+                  onAddSet={addSet}
+                  onRemoveSet={removeSet}
+                  onUpdateSet={updateSet}
+                  onNameChange={handleExerciseNameChange}
+                  lastEffort={lastEfforts[ex.name.toLowerCase()]}
+                />
+              ))}
+            </div>
+            <Button variant="secondary" onClick={addExercise} className="w-full py-6 text-sm font-label uppercase font-black italic gap-3 border-white/5 bg-white/5 hover:bg-white/10 rounded-3xl">
               <Dumbbell className="w-5 h-5 text-primary" /> ADD EXERCISE
             </Button>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[40vh] text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-surface-container-low border border-white/5 flex items-center justify-center text-surface-variant/20">
-                <Timer className="w-12 h-12" />
+            <div className="w-24 h-24 rounded-full bg-surface-container-low border border-white/5 flex items-center justify-center text-surface-variant/20 shadow-inner">
+              <Timer className="w-12 h-12" />
             </div>
             <div className="space-y-2">
-                <h3 className="text-2xl font-black italic uppercase">NO ACTIVE WORKOUT</h3>
-                <p className="text-sm font-label text-surface-variant uppercase tracking-widest font-bold">START A NEW WORKOUT TO TRACK YOUR PROGRESS</p>
+              <h3 className="text-2xl font-black uppercase italic">AWAITING INPUT</h3>
+              <p className="text-sm font-label text-surface-variant uppercase tracking-widest font-bold opacity-60">Initiate workout sequence to record performance</p>
             </div>
-            <Button size="lg" onClick={() => setIsActive(true)} className="italic font-black px-12">
-               START WORKOUT <Play className="ml-2 w-4 h-4 fill-current" />
+            <Button size="lg" onClick={() => setIsActive(true)} className="italic font-black px-12 h-16 rounded-2xl shadow-xl shadow-primary/10">
+              START WORKOUT <Play className="ml-2 w-4 h-4 fill-current" />
             </Button>
           </div>
         )}

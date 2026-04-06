@@ -8,7 +8,8 @@ import {
   Menu, 
   X,
   LogOut,
-  Calendar
+  Calendar,
+  Trophy
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
@@ -17,6 +18,7 @@ const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Workout", path: "/workout", icon: Dumbbell },
   { label: "History", path: "/history", icon: Calendar },
+  { label: "Records", path: "/records", icon: Trophy },
   { label: "Suggestions", path: "/suggestions", icon: Zap },
   { label: "Profile", path: "/onboarding", icon: User },
 ];

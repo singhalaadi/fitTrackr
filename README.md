@@ -1,8 +1,10 @@
-# FitTrackr v1.0 ⚡
+# FitTrackr
 
-**FitTrackr** is a high-performance, mobile-first fitness tracking application designed for serious athletes who demand precision, speed, and real-time data insights. Built with a "High-Velocity" aesthetic, it combines glassmorphism with advanced telemetry to offer a premium training experience.
+![FitTrackr Logo](public/logo.png)
 
-![FitTrackr Logo](/public/logo.png)
+### [Live Preview: fit-trackr-dusky.vercel.app](https://fit-trackr-dusky.vercel.app/)
+
+**FitTrackr** is a high-performance, mobile-first fitness tracking application designed for serious athletes who demand precision, speed, and real-time data insights. Built with a professional aesthetic, it combines glassmorphism with advanced telemetry to offer a premium training experience.
 
 ## 🚀 Key Features
 
@@ -74,7 +76,7 @@ match /workouts/{workoutId} {
 
 ## 📦 Deployment
 
-FitTrackr is optimized for deployment on **Vercel** or **Netlify**.
+FitTrackr is optimized for deployment on **Vercel**.
 
 1. **Build the production bundle**:
    ```bash

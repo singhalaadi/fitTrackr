@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth, googleProvider, db } from "../config/firebase";
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   signInWithPopup,
   updateProfile
@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
   async function signup(email, password, name) {
     const res = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(res.user, { displayName: name });
-    
+
     await setDoc(doc(db, "users", res.user.uid), {
       name,
       email,
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
       profileComplete: false,
       createdAt: new Date().toISOString()
     });
-    
+
     return res.user;
   }
 

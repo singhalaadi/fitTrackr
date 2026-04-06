@@ -9,6 +9,7 @@ import Suggestions from './pages/Suggestions'
 import ProfileSetup from './pages/ProfileSetup'
 import Login from './pages/Login'
 import History from './pages/History'
+import Records from './pages/Records'
 
 // Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -22,9 +23,10 @@ export default function App() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 animate-pulse">
           <div className="w-12 h-12 bg-primary/20 rounded-full border-t-2 border-primary animate-spin" />
-          <p className="font-label text-[10px] uppercase tracking-widest text-surface-variant">
-            Kinetic Link Established...
+          <p className="font-label text-[10px] uppercase tracking-widest text-surface-variant font-bold">
+            Syncing FitTrackr...
           </p>
+
         </div>
       </div>
     );
@@ -68,6 +70,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <History />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/records"
+        element={
+          <ProtectedRoute>
+            <Records />
           </ProtectedRoute>
         }
       />
