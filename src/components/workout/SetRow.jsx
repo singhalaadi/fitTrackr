@@ -29,7 +29,7 @@ export default function SetRow({
       <div className="flex justify-center items-center">
         <button 
           onClick={() => onRemoveSet(setIdx)}
-          className="p-2 text-surface-variant/30 hover:text-error transition-colors"
+          className="p-2 text-surface-variant/80 hover:text-error transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
