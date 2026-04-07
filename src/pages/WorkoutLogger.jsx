@@ -21,7 +21,7 @@ const STORAGE_KEY = "ft_active_session";
 export default function WorkoutLogger() {
   const { currentUser } = useAuth();
   const [isActive, setIsActive] = useState(false);
-  const [workoutName, setWorkoutName] = useState("Afternoon Session");
+  const [workoutName, setWorkoutName] = useState("");
   const [exercises, setExercises] = useState([]);
   const [intensity, setIntensity] = useState("MODERATE");
   const [lastEfforts, setLastEfforts] = useState({});
@@ -237,7 +237,7 @@ export default function WorkoutLogger() {
                   value={workoutName}
                   onChange={(e) => setWorkoutName(e.target.value)}
                   className="bg-transparent border-0 border-b border-white/10 focus:border-primary text-2xl uppercase italic text-primary w-full focus:outline-none transition-colors placeholder:text-surface-variant/30 font-bold"
-                  placeholder="SESSION NAME"
+                  placeholder="BODY PART?"
                 />
               </div>
               <div className="space-y-3 w-full sm:w-80">
