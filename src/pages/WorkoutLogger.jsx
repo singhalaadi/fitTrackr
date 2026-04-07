@@ -211,12 +211,12 @@ export default function WorkoutLogger() {
               </h1>
             </div>
             <p className="text-[10px] font-label text-surface-variant uppercase tracking-widest ml-4 font-bold italic opacity-60">
-              {isActive ? "ACTIVE SESSION" : "READY TO TRAIN"}
+              {isActive ? "ACTIVE WORKOUT" : "READY TO TRAIN"}
             </p>
           </div>
           <div className="flex items-center gap-4">
             <Button variant={isActive ? "secondary" : "primary"} onClick={isActive ? handleCancel : () => setIsActive(true)} className="px-8 font-black italic rounded-2xl h-14">
-              {isActive ? "CANCEL" : "START SESSION"}
+              {isActive ? "CANCEL" : "START WORKOUT"}
             </Button>
             {isActive && (
               <Button onClick={handleFinish} disabled={loading} className="px-8 font-black italic shadow-lg shadow-primary/20 rounded-2xl h-14">
@@ -231,13 +231,13 @@ export default function WorkoutLogger() {
             {/* Header Settings */}
             <div className="flex flex-col sm:flex-row gap-6 p-6 bg-surface-container-low/40 rounded-3xl border border-white/5 backdrop-blur-sm">
               <div className="flex-1 space-y-2">
-                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">Session Name</label>
+                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">WORKOUT NAME</label>
                 <input
                   type="text"
                   value={workoutName}
                   onChange={(e) => setWorkoutName(e.target.value)}
                   className="bg-transparent border-0 border-b border-white/10 focus:border-primary text-2xl uppercase italic text-primary w-full focus:outline-none transition-colors placeholder:text-surface-variant/30 font-bold"
-                  placeholder="BODY PART?"
+                  placeholder="WORKOUT NAME"
                 />
               </div>
               <div className="space-y-3 w-full sm:w-80">
@@ -245,13 +245,13 @@ export default function WorkoutLogger() {
                 <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 w-full">
                   <button
                     onClick={() => setIntensity("LIGHT")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "LIGHT" ? "bg-primary text-on-primary shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "LIGHT" ? "bg-secondary text-white shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
                   >
                     <Leaf className={`w-3.5 h-3.5 ${intensity === "LIGHT" ? "animate-bounce" : ""}`} /> LIGHT
                   </button>
                   <button
                     onClick={() => setIntensity("HEAVY")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "HEAVY" ? "bg-secondary text-white shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "HEAVY" ? "bg-primary text-on-primary shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
                   >
                     <Zap className={`w-3.5 h-3.5 ${intensity === "HEAVY" ? "animate-[pulse_1s_infinite]" : ""}`} /> HEAVY
                   </button>
