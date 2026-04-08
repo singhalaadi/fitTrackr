@@ -1,0 +1,11 @@
+{
+  "appId": "com.fittrackr.app",
+  "appName": "FitTrackr",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "StatusBar": {
+      "style": "dark"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getMessaging } from "firebase/messaging";
 
 export const firebaseConfig = {
@@ -18,5 +18,17 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const messaging = getMessaging(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Enable Persistence
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn("Persistence failed: Multiple tabs open.");
+    } else if (err.code === 'unimplemented') {
+      // The current browser does not support all of the features required to enable persistence
+      console.warn('Persistence is not supported in this browser');
+    }
+  });
+}
 
 export default app;

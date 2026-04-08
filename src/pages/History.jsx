@@ -18,10 +18,12 @@ import {
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { useUser } from "../contexts/UserContext";
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, limit, startAfter, getDocs } from "firebase/firestore";
 import { calculateBurn, getTotalSets } from "../utils/fitness";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/common/Button";
+import { WifiOff } from "lucide-react";
 
 export default function History() {
     const [workouts, setWorkouts] = useState([]);
@@ -32,26 +34,67 @@ export default function History() {
     const { userData } = useUser();
     const navigate = useNavigate();
 
+    const [lastVisible, setLastVisible] = useState(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+
     useEffect(() => {
         if (!currentUser) return;
 
-        const q = query(
-            collection(db, "workouts"),
-            where("userId", "==", currentUser.uid),
-            orderBy("timestamp", "desc")
-        );
+        const fetchWorkouts = async () => {
+            const q = query(
+                collection(db, "workouts"),
+                where("userId", "==", currentUser.uid),
+                orderBy("timestamp", "desc"),
+                limit(10)
+            );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const workoutData = snapshot.docs.map(doc => ({
+            try {
+                const snapshot = await getDocs(q);
+                const workoutData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setWorkouts(workoutData);
+                setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                setHasMore(snapshot.docs.length === 10);
+            } catch (err) {
+                toast.error("Failed to load history");
+            } finally {
+                setLoading(false);
+                setInitialLoading(false);
+            }
+        };
+
+        fetchWorkouts();
+    }, [currentUser]);
+
+    const loadMore = async () => {
+        if (!lastVisible || loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const q = query(
+                collection(db, "workouts"),
+                where("userId", "==", currentUser.uid),
+                orderBy("timestamp", "desc"),
+                startAfter(lastVisible),
+                limit(10)
+            );
+            const snapshot = await getDocs(q);
+            const nextWorkouts = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
-            setWorkouts(workoutData);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser]);
+            setWorkouts(prev => [...prev, ...nextWorkouts]);
+            setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+            setHasMore(snapshot.docs.length === 10);
+        } catch (err) {
+            toast.error("Error loading more sessions");
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const filteredWorkouts = workouts.filter(w =>
         w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,9 +119,14 @@ export default function History() {
     };
 
     const handleDelete = async (workoutId) => {
-        if (!window.confirm("Are you sure you want to delete this session?")) return;
+        const confirmStr = window.prompt("To delete this session, type 'DELETE' below:");
+        if (confirmStr !== "DELETE") {
+            if (confirmStr !== null) toast.error("Incorrect confirmation word.");
+            return;
+        }
         try {
             await deleteDoc(doc(db, "workouts", workoutId));
+            setWorkouts(prev => prev.filter(w => w.id !== workoutId));
             toast.success("Workout Deleted");
         } catch (err) {
             toast.error("Delete failed: " + err.message);
@@ -240,6 +288,19 @@ export default function History() {
                                 </Card>
                             );
                         })}
+                        
+                        {hasMore && (
+                            <div className="flex justify-center pt-8">
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={loadMore} 
+                                    disabled={loadingMore}
+                                    className="px-12 py-4 font-black italic uppercase tracking-widest text-[10px] bg-white/5 border-white/5 hover:bg-white/10"
+                                >
+                                    {loadingMore ? "SYNCING..." : "LOAD PREVIOUS SESSIONS"}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center min-h-[40vh] text-center space-y-6">

@@ -160,15 +160,31 @@ export default function WorkoutLogger() {
   }, [currentUser]);
 
   const handleFinish = async () => {
-    if (exercises.some(ex => !ex.name)) {
-      toast.error("Please name all exercises.");
+    // Validation
+    if (exercises.length === 0) {
+      toast.error("Add at least one exercise.");
       return;
     }
+
+    const hasEmptyNames = exercises.some(ex => !ex.name.trim());
+    if (hasEmptyNames) {
+      toast.error("All exercises must have a name.");
+      return;
+    }
+
+    const hasInvalidSets = exercises.some(ex => 
+      ex.sets.some(s => parseFloat(s.weight) <= 0 || parseInt(s.reps) <= 0)
+    );
+    if (hasInvalidSets) {
+      toast.error("All sets must have weight and reps > 0.");
+      return;
+    }
+
     setLoading(true);
     try {
       const workoutData = {
         userId: currentUser.uid,
-        name: workoutName,
+        name: workoutName || "Untitled Session",
         exercises,
         intensity,
         timestamp: serverTimestamp()

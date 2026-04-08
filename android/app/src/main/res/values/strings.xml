@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FitTrackr</string>
+    <string name="title_activity_main">FitTrackr</string>
+    <string name="package_name">com.fittrackr.app</string>
+    <string name="custom_url_scheme">com.fittrackr.app</string>
+</resources>

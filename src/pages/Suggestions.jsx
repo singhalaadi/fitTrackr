@@ -30,6 +30,13 @@ export default function Suggestions() {
   const [activeMuscle, setActiveMuscle] = useState("chest");
 
   useEffect(() => {
+    const cached = sessionStorage.getItem(`ft_ex_cache_${activeMuscle}`);
+    if (cached) {
+      try {
+        setExercises(JSON.parse(cached));
+        return;
+      } catch (e) { console.error("Cache error", e); }
+    }
     fetchExercises();
   }, [activeMuscle]);
 
@@ -47,21 +54,15 @@ export default function Suggestions() {
         }
       );
       
-      if (response.status === 403) {
-        throw new Error("API KEY FORBIDDEN: Verify ExerciseDB subscription.");
-      }
-      if (response.status === 422) {
-        throw new Error("INVALID CATEGORY: System calibration required.");
-      }
-      if (response.status === 429) {
-        throw new Error("API LIMIT REACHED: Monthly free tier exhausted.");
-      }
-      if (!response.ok) {
-        throw new Error(`SERVICE ERROR: ${response.status}`);
-      }
+      if (response.status === 403) throw new Error("API KEY FORBIDDEN: Verify ExerciseDB subscription.");
+      if (response.status === 422) throw new Error("INVALID CATEGORY: System calibration required.");
+      if (response.status === 429) throw new Error("API LIMIT REACHED: Monthly free tier exhausted.");
+      if (!response.ok) throw new Error(`SERVICE ERROR: ${response.status}`);
 
       const data = await response.json();
-      setExercises(Array.isArray(data) ? data : []);
+      const validData = Array.isArray(data) ? data : [];
+      setExercises(validData);
+      sessionStorage.setItem(`ft_ex_cache_${activeMuscle}`, JSON.stringify(validData));
     } catch (error) {
       console.error("Fetch failed", error);
       setError(error.message);

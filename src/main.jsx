@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { UserProvider } from './contexts/UserContext'
+import { StatusBar } from '@capacitor/status-bar';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -29,3 +30,6 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Initialize StatusBar plugin
+StatusBar.setBackgroundColor({ color: '#09090b' });

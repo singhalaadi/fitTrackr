@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   Dumbbell, 
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUser } from "../../contexts/UserContext";
+import BottomNav from "./BottomNav";
+import { useBackButton } from "../../hooks/useBackButton";
+import { WifiOff } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -28,11 +31,47 @@ export default function Layout({ children }) {
   const location = useLocation();
   const { logout } = useAuth();
   const { userData } = useUser();
+  const [isMobile, setIsMobile] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useBackButton();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background text-on-background flex flex-col">
-      {/* Sticky Header Navbar */}
-      <header className="sticky top-0 z-50 glassmorphism h-20 flex items-center px-6 lg:px-12 justify-between border-b border-white/5">
+    <div className="min-h-screen bg-background text-on-background flex flex-col pt-safe">
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <div className="bg-primary/20 backdrop-blur-md py-1.5 flex items-center justify-center gap-2 border-b border-primary/20 animate-in slide-in-from-top duration-300">
+           <WifiOff className="w-3 h-3 text-primary animate-pulse" />
+           <span className="text-[10px] font-black italic uppercase tracking-widest text-primary">Persistence Mode Active // Offline</span>
+        </div>
+      )}
+      {/* Header Navbar - Only show on desktop */}
+      {!isMobile && (
+        <header className="sticky top-0 z-50 glassmorphism h-20 flex items-center px-6 lg:px-12 justify-between border-b border-white/5">
         <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 bg-linear-to-br from-primary to-primary-container rounded-xl flex items-center justify-center shadow-lg shadow-primary/10 -rotate-3 group-hover:rotate-0 transition-all overflow-hidden border border-white/5">
@@ -95,6 +134,10 @@ export default function Layout({ children }) {
           </button>
         </div>
       </header>
+      )}
+
+      {/* Mobile Bottom Navigation - Only show on mobile */}
+      {isMobile && <BottomNav />}
 
       {/* Mobile Drawer */}
       {isMenuOpen && (
@@ -133,7 +176,7 @@ export default function Layout({ children }) {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[2000px] mx-auto w-full px-6 lg:px-12 py-8 transition-all lg:mt-4">
+      <main className={`flex-1 max-w-[2000px] mx-auto w-full px-6 lg:px-12 py-8 transition-all lg:mt-4 ${isMobile ? 'pb-24' : ''}`}>
         {children}
       </main>
     </div>
