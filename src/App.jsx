@@ -5,7 +5,6 @@ import { useUser } from './contexts/UserContext'
 // Pages
 import Dashboard from './pages/Dashboard'
 import WorkoutLogger from './pages/WorkoutLogger'
-import Suggestions from './pages/Suggestions'
 import ProfileSetup from './pages/ProfileSetup'
 import Login from './pages/Login'
 import History from './pages/History'
@@ -79,15 +78,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Records />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/suggestions"
-        element={
-          <ProtectedRoute>
-            <Suggestions />
           </ProtectedRoute>
         }
       />

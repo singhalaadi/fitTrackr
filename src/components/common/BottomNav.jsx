@@ -5,7 +5,7 @@ import {
     Dumbbell, 
     Trophy, 
     Calendar, 
-    Zap 
+    User 
 } from 'lucide-react';
 
 const BottomNav = () => {
@@ -16,11 +16,11 @@ const BottomNav = () => {
     { path: '/workout', icon: Dumbbell, label: 'Log' },
     { path: '/records', icon: Trophy, label: 'PRs' },
     { path: '/history', icon: Calendar, label: 'History' },
-    { path: '/suggestions', icon: Zap, label: 'Fit' },
+    { path: '/onboarding', icon: User, label: 'Profile' },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] glassmorphism border-t border-white/5 px-2 pb-safe-offset-2">
+    <div className="fixed bottom-0 left-0 right-0 z-100 glassmorphism border-t border-white/5 px-2 pb-safe-offset-2">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
         {navItems.map(({ path, icon: Icon, label }) => {
           const isActive = location.pathname === path;

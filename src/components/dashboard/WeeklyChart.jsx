@@ -37,7 +37,7 @@ export default function WeeklyChart({
         </div>
       </div>
 
-      <div className="h-[250px] w-full flex items-end justify-between px-2 sm:px-4 pb-8 relative mt-4" onClick={() => setActiveBar(null)}>
+      <div className="h-62.5 w-full flex items-end justify-between px-2 sm:px-4 pb-8 relative mt-4" onClick={() => setActiveBar(null)}>
         {!hasDataOverall && (
           <div className="absolute inset-0 flex items-center justify-center z-20">
             <p className="text-[10px] font-label uppercase tracking-[0.4em] text-surface-variant italic font-black opacity-80">No Workouts Logged yet</p>
@@ -57,15 +57,14 @@ export default function WeeklyChart({
             {/* Tooltip */}
             {activeBar === i && (d.peakWeight > 0) && (
               <div className="absolute bottom-[calc(100%-40px)] z-50 animate-in fade-in zoom-in duration-200 pointer-events-none">
-                <div className="bg-surface-container-highest border border-primary/30 p-3 rounded-2xl shadow-2xl min-w-[140px] space-y-2 translate-y-[-10px]">
+                <div className="bg-surface-container-highest border border-primary/30 p-3 rounded-2xl shadow-2xl min-w-35 space-y-2 translate-y-2.5">
                   <p className="text-[9px] font-black italic text-primary uppercase border-b border-white/5 pb-1 flex items-center gap-2">
                     <Trophy className="w-3 h-3" /> PR: {d.peakWeight}KG
                   </p>
-                  <p className="text-[10px] font-bold text-white uppercase tracking-tighter truncate max-w-[120px]">{d.topEx || "Session"}</p>
+                  <p className="text-[10px] font-bold text-white uppercase tracking-tighter truncate max-w-30">{d.topEx || "Session"}</p>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div className="flex flex-col">
-                      <span className="text-[7px] text-surface-variant font-black uppercase flex items-center gap-1"><Flame className="w-2 h-2" /> Calories</span>
-                      <span className="text-[10px] text-white font-black italic">{d.cal.toFixed(0)} kcal</span>
+                      <span className="text-[7px] text-surface-variant font-black uppercase flex items-center gap-1"><Activity className="w-2 h-2" /> Sets</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[7px] text-surface-variant font-black uppercase flex items-center gap-1"><TrendingUp className="w-2 h-2" /> Total KG</span>

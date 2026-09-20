@@ -1,14 +1,12 @@
 import { ChevronLeft } from "lucide-react";
 
 export default function ProfileHeader({ 
-    userData, 
-    handleBack, 
     idealRange, 
     bmi, 
     isComplete 
 }) {
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-6">
       <div className="flex items-center justify-between">
         {/* Top Progress Bar */}
         <div className="flex items-center gap-3 sm:gap-4 text-surface-variant">
@@ -20,17 +18,6 @@ export default function ProfileHeader({
           </div>
           <span className="text-[9px] sm:text-[10px] font-label uppercase tracking-widest font-black whitespace-nowrap">Progress Complete</span>
         </div>
-
-        {userData?.profileComplete && (
-          <button
-            type="button"
-            onClick={handleBack}
-            className="flex items-center gap-1 group text-surface-variant hover:text-primary transition-all pr-1"
-          >
-            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[9px] font-black italic uppercase tracking-[0.15em]">Back</span>
-          </button>
-        )}
       </div>
 
       <header className="space-y-6 sm:space-y-8 flex flex-col sm:flex-row sm:items-end justify-between border-b border-white/5 pb-8 sm:pb-12">

@@ -22,7 +22,6 @@ const navItems = [
   { label: "Workout", path: "/workout", icon: Dumbbell },
   { label: "History", path: "/history", icon: Calendar },
   { label: "Records", path: "/records", icon: Trophy },
-  { label: "Suggestions", path: "/suggestions", icon: Zap },
   { label: "Profile", path: "/onboarding", icon: User },
 ];
 
@@ -87,7 +86,7 @@ export default function Layout({ children }) {
                     <div className="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden bg-surface-container-low p-0.5">
                         <img src={userData.photoURL} alt={userData.name} className="w-full h-full object-cover rounded-full transition-transform hover:scale-110" />
                     </div>
-                    <span className="text-[10px] font-black italic uppercase tracking-widest text-surface-variant max-w-[100px] truncate">{userData.name}</span>
+                    <span className="text-[10px] font-black italic uppercase tracking-widest text-surface-variant max-w-25 truncate">{userData.name}</span>
                 </div>
             )}
         </div>
@@ -176,7 +175,7 @@ export default function Layout({ children }) {
       )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 max-w-[2000px] mx-auto w-full px-6 lg:px-12 py-8 transition-all lg:mt-4 ${isMobile ? 'pb-24' : ''}`}>
+      <main className={`flex-1 max-w-500 mx-auto w-full px-6 lg:px-12 py-8 transition-all lg:mt-4 ${isMobile ? 'pb-24' : ''}`}>
         {children}
       </main>
     </div>

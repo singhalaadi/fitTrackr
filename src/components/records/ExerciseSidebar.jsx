@@ -9,7 +9,7 @@ export default function ExerciseSidebar({
   return (
     <div className="lg:col-span-1 space-y-4">
       <div className="bg-surface-container-low/30 backdrop-blur-md rounded-3xl p-1.5 border border-white/5 overflow-hidden transition-all h-full">
-        <div className="max-h-[65vh] overflow-y-auto custom-scrollbar space-y-1 pr-1.5 md:pr-1">
+        <div className="max-h-[35vh] overflow-y-auto custom-scrollbar space-y-1 pr-1.5 md:pr-1">
           {exerciseList.map((ex) => (
             <button
               key={ex}

@@ -50,8 +50,6 @@ To run FitTrackr locally:
    VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    VITE_FIREBASE_APP_ID=your_app_id
    VITE_FIREBASE_VAPID_KEY=your_web_push_certificate_key
-   VITE_RAPIDAPI_KEY=your_rapidapi_key
-   VITE_RAPIDAPI_HOST=exercisedb.p.rapidapi.com
    VITE_CLOUDINARY_CLOUD_NAME=your_cloudinary_name
    VITE_CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset
    ```

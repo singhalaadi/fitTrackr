@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import Layout from "../components/common/Layout";
 import { useUser } from "../contexts/UserContext";
 import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -126,79 +127,82 @@ export default function ProfileSetup() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-    </div>
+    <Layout>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    </Layout>
   );
 
   return (
-    <div className="min-h-screen bg-background text-on-background py-10 sm:py-16 px-4 sm:px-6 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+    <Layout>
+      <div className="min-h-screen bg-background text-on-background py-6 sm:py-12 px-4 sm:px-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-125 h-125 bg-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
 
-      <div className="max-w-4xl mx-auto space-y-10 sm:space-y-12 relative z-10">
-        <ProfileHeader 
-          userData={userData} 
-          handleBack={() => isDirty ? window.confirm("Discard changes?") && navigate("/") : navigate("/")} 
-          idealRange={idealRange} 
-          bmi={bmi} 
-          isComplete={name && weight && heightFt && gender && selectedGoal} 
-        />
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-12 relative z-10">
+          <ProfileHeader 
+            userData={userData}
+            idealRange={idealRange} 
+            bmi={bmi} 
+            isComplete={name && weight && heightFt && gender && selectedGoal} 
+          />
 
-        <form onSubmit={handleSave} className="space-y-10 sm:space-y-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-20">
-            <div className="space-y-10 sm:space-y-12">
-              <PhotoSection 
-                profileImage={profileImage} 
-                fileInputRef={fileInputRef} 
-                handleImageUpload={handleImageUpload} 
-              />
-              <section className="space-y-6">
-                <h2 className="text-lg font-bold flex items-center gap-3 italic">
-                  <span className="text-primary font-black">02 /</span> Full Name
-                </h2>
-                <input
-                  type="text"
-                  placeholder="ENTER NAME"
-                  className="w-full bg-transparent border-0 border-b-2 border-white/10 focus:border-primary px-0 py-3 sm:py-4 text-2xl sm:text-3xl font-black text-on-background transition-all focus:outline-none placeholder:text-surface-variant/20 tracking-tighter italic uppercase"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+          <form onSubmit={handleSave} className="space-y-10 sm:space-y-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-20">
+              <div className="space-y-10 sm:space-y-12">
+                <PhotoSection 
+                  profileImage={profileImage} 
+                  fileInputRef={fileInputRef} 
+                  handleImageUpload={handleImageUpload} 
                 />
-              </section>
-            </div>
+                <section className="space-y-6">
+                  <h2 className="text-lg font-bold flex items-center gap-3 italic">
+                    <span className="text-primary font-black">02 /</span> Full Name
+                  </h2>
+                  <input
+                    type="text"
+                    placeholder="ENTER NAME"
+                    className="w-full bg-transparent border-0 border-b-2 border-white/10 focus:border-primary px-0 py-3 sm:py-4 text-2xl sm:text-3xl font-black text-on-background transition-all focus:outline-none placeholder:text-surface-variant/20 tracking-tighter italic uppercase"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </section>
+              </div>
 
-            <div className="space-y-10 sm:space-y-12">
-              <BodyStatsSection 
-                gender={gender} setGender={setGender} weight={weight} setWeight={setWeight} 
-                heightFt={heightFt} setHeightFt={setHeightFt} heightIn={heightIn} setHeightIn={setHeightIn} 
-              />
-              <div className="space-y-12">
-                <GoalSection goals={goals} selectedGoal={selectedGoal} setSelectedGoal={setSelectedGoal} />
-                <PreferencesSection age={age} setAge={setAge} weekStartDay={weekStartDay} setWeekStartDay={setWeekStartDay} />
+              <div className="space-y-10 sm:space-y-12">
+                <BodyStatsSection 
+                  gender={gender} setGender={setGender} weight={weight} setWeight={setWeight} 
+                  heightFt={heightFt} setHeightFt={setHeightFt} heightIn={heightIn} setHeightIn={setHeightIn} 
+                />
+                <div className="space-y-12">
+                  <GoalSection goals={goals} selectedGoal={selectedGoal} setSelectedGoal={setSelectedGoal} />
+                  <PreferencesSection age={age} setAge={setAge} weekStartDay={weekStartDay} setWeekStartDay={setWeekStartDay} />
+                </div>
               </div>
             </div>
-          </div>
 
-          <footer className="pt-12 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-10">
-            <div className="flex items-center gap-4 text-surface-variant">
-              <div className="w-12 h-1 bg-surface-container-highest rounded-full overflow-hidden">
-                <div className="h-full bg-primary shadow-[0_0_10px_var(--color-primary)] transition-all duration-1000" style={{ width: isDirty ? '60%' : '100%' }} />
+            <footer className="pt-12 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-10">
+              <div className="flex items-center gap-4 text-surface-variant">
+                <div className="w-12 h-1 bg-surface-container-highest rounded-full overflow-hidden">
+                  <div className="h-full bg-primary shadow-[0_0_10px_var(--color-primary)] transition-all duration-1000" style={{ width: isDirty ? '60%' : '100%' }} />
+                </div>
+                <span className="text-[10px] font-label uppercase tracking-widest font-black">Profile Sync Status</span>
               </div>
-              <span className="text-[10px] font-label uppercase tracking-widest font-black">Profile Sync Status</span>
-            </div>
 
-            <Button
-              type="submit"
-              className="w-1/2 sm:w-auto h-20 sm:h-24 px-12 sm:px-20 text-2xl sm:text-3xl font-black italic uppercase shadow-2xl shadow-primary/20 tracking-wider group flex items-center justify-center shrink-0"
-              disabled={isSubmitting || (userData?.profileComplete && !isDirty)}
-              size="lg"
-            >
-              {isSubmitting ? "Syncing..." : (isDirty ? "Save Changes" : "Up to Date")}
-              {!isSubmitting && isDirty && <ArrowRight className="ml-3 w-6 h-6 sm:w-8 sm:h-8 group-hover:translate-x-2 transition-transform" />}
-              {!isSubmitting && !isDirty && userData?.profileComplete && <CheckCircle2 className="ml-3 w-6 h-6 sm:w-8 sm:h-8 text-primary/50" />}
-            </Button>
-          </footer>
-        </form>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto h-20 sm:h-24 px-12 sm:px-20 text-2xl sm:text-3xl font-black italic uppercase shadow-2xl shadow-primary/20 tracking-wider group flex items-center justify-center shrink-0"
+                disabled={isSubmitting || (userData?.profileComplete && !isDirty)}
+                size="lg"
+              >
+                {isSubmitting ? "Syncing..." : (isDirty ? "Save Changes" : "Up to Date")}
+                {!isSubmitting && isDirty && <ArrowRight className="ml-3 w-6 h-6 sm:w-8 sm:h-8 group-hover:translate-x-2 transition-transform" />}
+                {!isSubmitting && !isDirty && userData?.profileComplete && <CheckCircle2 className="ml-3 w-6 h-6 sm:w-8 sm:h-8 text-primary/50" />}
+              </Button>
+            </footer>
+          </form>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
