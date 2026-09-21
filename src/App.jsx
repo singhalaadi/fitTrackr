@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { useUser } from './contexts/UserContext'
+import { analytics } from "./config/firebase";
+import { logEvent } from "firebase/analytics";
 
 // Pages
 import Dashboard from './pages/Dashboard'
@@ -29,6 +31,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (analytics) {
+    logEvent(analytics, "page_visit");
   }
 
   return (

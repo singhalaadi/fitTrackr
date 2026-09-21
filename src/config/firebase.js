@@ -1,7 +1,14 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import {
+  getFirestore,
+  enableIndexedDbPersistence
+} from "firebase/firestore";
 import { getMessaging } from "firebase/messaging";
+import {
+  getAnalytics,
+  isSupported
+} from "firebase/analytics";
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,19 +21,31 @@ export const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const messaging = getMessaging(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// Analytics
+export let analytics = null;
+
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      analytics = getAnalytics(app);
+      console.log("Firebase Analytics initialized");
+    }
+  });
+}
+
 // Enable Persistence
 if (typeof window !== "undefined") {
   enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
+    if (err.code === "failed-precondition") {
       console.warn("Persistence failed: Multiple tabs open.");
-    } else if (err.code === 'unimplemented') {
-      // The current browser does not support all of the features required to enable persistence
-      console.warn('Persistence is not supported in this browser');
+    } else if (err.code === "unimplemented") {
+      console.warn("Persistence is not supported in this browser");
     }
   });
 }
