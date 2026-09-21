@@ -9,9 +9,10 @@ import {
   Leaf
 } from "lucide-react";
 import { db } from "../config/firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, updateDoc, doc } from "firebase/firestore";
 import toast from "react-hot-toast";
+import { detectPRs } from "../utils/pr";
 
 // Modular Components
 import ExerciseCard from "../components/workout/ExerciseCard";
@@ -182,25 +183,64 @@ export default function WorkoutLogger() {
 
     setLoading(true);
     try {
+      const prs = await detectPRs({
+        userId: currentUser.uid,
+        exercises,
+        currentSessionId: sessionId,
+      });
+
+      console.log("Detected PRs:", prs);
+
       const workoutData = {
         userId: currentUser.uid,
         name: workoutName || "Untitled Session",
         exercises,
         intensity,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
       };
+
       if (sessionId) {
-        await updateDoc(doc(db, "workouts", sessionId), workoutData);
+        await updateDoc(
+          doc(db, "workouts", sessionId),
+          workoutData
+        );
+
         toast.success("Workout Updated!");
       } else {
-        const res = await addDoc(collection(db, "workouts"), workoutData);
+        const res = await addDoc(
+          collection(db, "workouts"),
+          workoutData
+        );
+
         setSessionId(res.id);
+
         toast.success("Workout Recorded!");
+      }
+
+      // Temporary testing only.
+      // We'll replace this with the real FCM notification later.
+      if (prs.length > 0) {
+        console.log("NEW PR DETECTED");
+
+        prs.forEach((pr) => {
+          if (pr.type === "weight") {
+            console.log(
+              `${pr.exercise}: ${pr.newWeight} KG x ${pr.reps}`
+            );
+          }
+
+          if (pr.type === "reps") {
+            console.log(
+              `${pr.exercise}: ${pr.weight} KG x ${pr.newReps} reps`
+            );
+          }
+        });
       }
 
       localStorage.removeItem(STORAGE_KEY);
       setIsActive(false);
     } catch (error) {
+      console.error("Workout save/PR detection failed:", error);
       toast.error("Failed to save: " + error.message);
     } finally {
       setLoading(false);

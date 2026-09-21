@@ -6,14 +6,12 @@ import {
   Trophy,
   Activity,
   TrendingUp,
-  Flame,
   ArrowRight,
   Bell,
   BellRing,
   CheckCircle,
-  AlertTriangle,
 } from "lucide-react";
-import { useUser } from "../contexts/UserContext";
+import { useUser } from "../contexts/useUser";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
@@ -23,11 +21,12 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import {
+  registerMessagingServiceWorker,
   requestNotificationPermission,
   onMessageListener,
-} from "../services/notification.jsx";
+} from "../services/notification";
 import { calculateBurn, getTotalSets } from "../utils/fitness";
 import toast from "react-hot-toast";
 
@@ -42,7 +41,6 @@ export default function Dashboard() {
   const { currentUser } = useAuth();
 
   const [workouts, setWorkouts] = useState([]);
-  const [workoutsLoading, setWorkoutsLoading] = useState(true);
   const [activeBar, setActiveBar] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -84,13 +82,28 @@ export default function Dashboard() {
         // console.error("Error parsing saved session:", e);
       }
     }
-
-    if (userData?.profileComplete) {
-      onMessageListener().catch(() => {
-        // console.error(err);
-      });
-    }
   }, [userData, loading, navigate, currentUser]);
+
+  // Register Firebase Messaging Service Worker
+  useEffect(() => {
+    if (!userData?.profileComplete) return;
+
+    registerMessagingServiceWorker().catch((error) => {
+      console.error(
+        "Firebase Messaging Service Worker registration failed:",
+        error,
+      );
+    });
+  }, [userData?.profileComplete]);
+
+  // Listen for foreground notifications
+  useEffect(() => {
+    if (!userData?.profileComplete) return;
+
+    onMessageListener().catch((error) => {
+      console.error("Notification listener error:", error);
+    });
+  }, [userData?.profileComplete]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -105,7 +118,6 @@ export default function Dashboard() {
         ...doc.data(),
       }));
       setWorkouts(workoutData);
-      setWorkoutsLoading(false);
     });
     return () => unsubscribe();
   }, [currentUser]);
@@ -297,7 +309,7 @@ export default function Dashboard() {
     return results;
   }, [workouts]);
 
-  const { allTimePRs, prList } = useMemo(() => {
+  const { prList } = useMemo(() => {
     const allTime = {};
     const thisMonth = {};
     const monthStart = new Date();

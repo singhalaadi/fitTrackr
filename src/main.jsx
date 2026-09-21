@@ -4,9 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import './index.css'
 import App from './App.jsx'
-import { AuthProvider } from './contexts/AuthContext'
-import { UserProvider } from './contexts/UserContext'
+import  AuthProvider  from './contexts/AuthProvider.jsx'
+import  UserProvider  from './contexts/UserProvider.jsx'
 import { StatusBar } from '@capacitor/status-bar';
+import { Capacitor } from "@capacitor/core";
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -32,4 +33,6 @@ createRoot(document.getElementById('root')).render(
 )
 
 // Initialize StatusBar plugin
-StatusBar.setBackgroundColor({ color: '#09090b' });
+if (Capacitor.isNativePlatform()) {
+  StatusBar.setBackgroundColor({ color: '#09090b' });
+}

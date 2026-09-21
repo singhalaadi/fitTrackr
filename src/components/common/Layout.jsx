@@ -11,8 +11,8 @@ import {
   Calendar,
   Trophy
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUser } from "../../contexts/UserContext";
+import { useAuth } from "../../contexts/useAuth";
+import { useUser } from "../../contexts/useUser";
 import BottomNav from "./BottomNav";
 import { useBackButton } from "../../hooks/useBackButton";
 import { WifiOff } from "lucide-react";

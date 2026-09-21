@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Layout from "../components/common/Layout";
 import { Search, History as HistoryIcon, AlertCircle } from "lucide-react";
 import { db } from "../config/firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import {
   collection,
   query,

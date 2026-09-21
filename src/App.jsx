@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
-import { useUser } from './contexts/UserContext'
+import { useAuth } from './contexts/useAuth'
+import { useUser } from './contexts/useUser'
 import { analytics } from "./config/firebase";
 import { logEvent } from "firebase/analytics";
 

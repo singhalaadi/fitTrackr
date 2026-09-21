@@ -1,14 +1,15 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import {
-  getFirestore,
-  enableIndexedDbPersistence
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from "firebase/firestore";
-import { getMessaging } from "firebase/messaging";
 import {
-  getAnalytics,
-  isSupported
-} from "firebase/analytics";
+  getMessaging,
+  isSupported as isMessagingSupported
+} from "firebase/messaging";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,14 +21,22 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+// Authentication
 export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const messaging = getMessaging(app);
-export const googleProvider = new GoogleAuthProvider();
 
-// Analytics
+// Firestore
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
+
+// Google Authentication
+export const googleProvider = new GoogleAuthProvider();
+export let messaging = null;
 export let analytics = null;
 
 if (typeof window !== "undefined") {
@@ -37,15 +46,13 @@ if (typeof window !== "undefined") {
       console.log("Firebase Analytics initialized");
     }
   });
-}
 
-// Enable Persistence
-if (typeof window !== "undefined") {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === "failed-precondition") {
-      console.warn("Persistence failed: Multiple tabs open.");
-    } else if (err.code === "unimplemented") {
-      console.warn("Persistence is not supported in this browser");
+  isMessagingSupported().then((supported) => {
+    if (supported) {
+      messaging = getMessaging(app);
+      console.log("Firebase Messaging initialized");
+    } else {
+      console.warn("Firebase Messaging is not supported.");
     }
   });
 }

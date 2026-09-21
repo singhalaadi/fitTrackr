@@ -16,9 +16,9 @@ import {
     Leaf
 } from "lucide-react";
 import { db } from "../config/firebase";
-import { useAuth } from "../contexts/AuthContext";
-import { useUser } from "../contexts/UserContext";
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, limit, startAfter, getDocs } from "firebase/firestore";
+import { useAuth } from "../contexts/useAuth";
+import { useUser } from "../contexts/useUser";
+import { collection, query, where, orderBy, doc, deleteDoc, limit, startAfter, getDocs } from "firebase/firestore";
 import { calculateBurn, getTotalSets } from "../utils/fitness";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -36,7 +36,6 @@ export default function History() {
 
     const [lastVisible, setLastVisible] = useState(null);
     const [hasMore, setHasMore] = useState(true);
-    const [initialLoading, setInitialLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
 
     useEffect(() => {
@@ -59,11 +58,10 @@ export default function History() {
                 setWorkouts(workoutData);
                 setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
                 setHasMore(snapshot.docs.length === 10);
-            } catch (err) {
+            } catch {
                 toast.error("Failed to load history");
             } finally {
                 setLoading(false);
-                setInitialLoading(false);
             }
         };
 
@@ -89,7 +87,7 @@ export default function History() {
             setWorkouts(prev => [...prev, ...nextWorkouts]);
             setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
             setHasMore(snapshot.docs.length === 10);
-        } catch (err) {
+        } catch {
             toast.error("Error loading more sessions");
         } finally {
             setLoadingMore(false);
