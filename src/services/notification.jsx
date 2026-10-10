@@ -9,11 +9,8 @@ export const registerMessagingServiceWorker = async () => {
     throw new Error("Service workers are not supported.");
   }
 
-  const registration = await navigator.serviceWorker.register(
-    "/firebase-messaging-sw.js",
-  );
+  const registration = await navigator.serviceWorker.ready;
 
-  await navigator.serviceWorker.ready;
   return registration;
 };
 

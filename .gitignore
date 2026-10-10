@@ -28,3 +28,4 @@ dist-ssr
 .env
 .kilo
 build_error.txt
+dev-dist/

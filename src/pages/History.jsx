@@ -99,14 +99,40 @@ export default function History() {
         w.exercises.some(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const formatDate = (timestamp) => {
-        if (!timestamp) return "N/A";
-        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-        return date.toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-        }).toUpperCase();
+    const formatDate = (timestamp, sessionDate) => {
+    if (timestamp) {
+        const date = timestamp.toDate
+        ? timestamp.toDate()
+        : new Date(timestamp);
+
+        return date
+        .toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+        })
+        .toUpperCase();
+    }
+
+    if (sessionDate) {
+        const [year, month, day] = sessionDate.split("-");
+
+        const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day)
+        );
+
+        return date
+        .toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+        })
+        .toUpperCase();
+    }
+
+    return "N/A";
     };
 
     const isToday = (timestamp) => {

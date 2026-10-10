@@ -3,6 +3,7 @@ import {
   query,
   where,
   getDocs,
+  getDocsFromCache,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 
@@ -62,7 +63,26 @@ export const detectPRs = async ({
     where("userId", "==", userId)
   );
 
-  const snapshot = await getDocs(q);
+  let snapshot;
+
+  try {
+    if (navigator.onLine) {
+      // Online: use the normal Firestore query
+      snapshot = await getDocs(q);
+    } else {
+      // Offline: only use data already available locally
+      snapshot = await getDocsFromCache(q);
+    }
+  } catch (error) {
+    console.warn(
+      "PR history could not be loaded. Continuing without PR detection.",
+      error
+    );
+
+    snapshot = {
+      docs: [],
+    };
+  }
 
   const previousWorkouts = snapshot.docs
     .filter((doc) => doc.id !== currentSessionId)
@@ -130,7 +150,7 @@ export const detectPRs = async ({
     if (
       previousBest.maxWeight > 0 &&
       bestRepSet.reps >
-        previousBest.maxRepsAtMaxWeight
+      previousBest.maxRepsAtMaxWeight
     ) {
       prs.push({
         exercise: exercise.name.trim(),

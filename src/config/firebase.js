@@ -43,14 +43,12 @@ if (typeof window !== "undefined") {
   isSupported().then((supported) => {
     if (supported) {
       analytics = getAnalytics(app);
-      console.log("Firebase Analytics initialized");
     }
   });
 
   isMessagingSupported().then((supported) => {
     if (supported) {
       messaging = getMessaging(app);
-      console.log("Firebase Messaging initialized");
     } else {
       console.warn("Firebase Messaging is not supported.");
     }

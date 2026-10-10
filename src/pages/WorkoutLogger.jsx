@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
 import Layout from "../components/common/Layout";
 import Button from "../components/common/Button";
-import {
-  Play,
-  Dumbbell,
-  Timer,
-  Zap,
-  Leaf
-} from "lucide-react";
+import { Play, Dumbbell, Timer, Zap, Leaf } from "lucide-react";
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/useAuth";
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, updateDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  serverTimestamp,
+  Timestamp,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  updateDoc,
+  setDoc,
+  doc,
+  getDocsFromCache,
+} from "firebase/firestore";
 import toast from "react-hot-toast";
 import { detectPRs } from "../utils/pr";
 
@@ -31,80 +38,156 @@ export default function WorkoutLogger() {
 
   useEffect(() => {
     if (isActive && currentUser) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        userId: currentUser.uid,
-        name: workoutName,
-        exercises,
-        intensity,
-        sessionId,
-        updatedAt: Date.now()
-      }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          userId: currentUser.uid,
+          name: workoutName,
+          exercises,
+          intensity,
+          sessionId,
+          updatedAt: Date.now(),
+        }),
+      );
     }
   }, [isActive, workoutName, exercises, intensity, sessionId, currentUser]);
 
   const addExercise = () => {
-    setExercises([...exercises, {
-      id: Date.now(),
-      name: "",
-      sets: [{ reps: 0, weight: 0 }]
-    }]);
+    setExercises([
+      ...exercises,
+      {
+        id: Date.now(),
+        name: "",
+        sets: [{ reps: 0, weight: 0 }],
+      },
+    ]);
   };
 
   const removeExercise = (exerciseId) => {
-    setExercises(exercises.filter(ex => ex.id !== exerciseId));
+    setExercises(exercises.filter((ex) => ex.id !== exerciseId));
   };
 
   const addSet = (exerciseId) => {
-    setExercises(exercises.map(ex =>
-      ex.id === exerciseId
-        ? { ...ex, sets: [...ex.sets, { reps: 0, weight: 0 }] }
-        : ex
-    ));
+    setExercises(
+      exercises.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: [...ex.sets, { reps: 0, weight: 0 }] }
+          : ex,
+      ),
+    );
   };
 
   const removeSet = (exerciseId, setIdx) => {
-    setExercises(exercises.map(ex =>
-      ex.id === exerciseId
-        ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIdx) }
-        : ex
-    ));
+    setExercises(
+      exercises.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIdx) }
+          : ex,
+      ),
+    );
   };
 
   const updateSet = (exerciseId, setIndex, field, value) => {
-    setExercises(exercises.map(ex =>
-      ex.id === exerciseId
-        ? {
-          ...ex,
-          sets: ex.sets.map((s, i) => i === setIndex ? { ...s, [field]: value } : s)
-        }
-        : ex
-    ));
+    setExercises(
+      exercises.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s, i) =>
+                i === setIndex ? { ...s, [field]: value } : s,
+              ),
+            }
+          : ex,
+      ),
+    );
+  };
+
+  const getTodayKey = () => {
+    const now = new Date();
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   };
 
   const handleExerciseNameChange = (exerciseId, name) => {
-    setExercises(exercises.map(ex => ex.id === exerciseId ? { ...ex, name } : ex));
-    if (name.length > 3) fetchLastEffort(name);
+    setExercises(
+      exercises.map((ex) => (ex.id === exerciseId ? { ...ex, name } : ex)),
+    );
+
+    if (name.length > 3) {
+      fetchLastEffort(name);
+    }
   };
 
   const fetchLastEffort = async (exName) => {
-    if (!exName || exName.length < 3) return;
+    if (!exName || exName.length < 3 || !currentUser?.uid) return;
+
     try {
       const q = query(
         collection(db, "workouts"),
         where("userId", "==", currentUser.uid),
-        orderBy("timestamp", "desc"),
-        limit(5)
       );
-      const snapshot = await getDocs(q);
-      for (const d of snapshot.docs) {
-        const data = d.data();
-        const found = data.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
-        if (found) {
-          const bestSet = found.sets.reduce((prev, curr) => (parseFloat(curr.weight || 0) > parseFloat(prev.weight || 0) ? curr : prev), found.sets[0]);
-          setLastEfforts(prev => ({ ...prev, [exName.toLowerCase()]: bestSet }));
-          return;
-        }
+
+      let snapshot;
+
+      if (navigator.onLine) {
+        // Online: get the latest workout data from Firestore
+        snapshot = await getDocs(q);
+      } else {
+        // Offline: use workouts already stored in Firestore's local cache
+        snapshot = await getDocsFromCache(q);
       }
+
+      const workouts = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .sort((a, b) => {
+          const aTime = a.timestamp?.toMillis?.() || 0;
+          const bTime = b.timestamp?.toMillis?.() || 0;
+
+          return bTime - aTime;
+        });
+
+      const normalizedExerciseName = exName
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, " ");
+
+      for (const workout of workouts) {
+        const found = (workout.exercises || []).find(
+          (exercise) =>
+            exercise.name?.toLowerCase().trim().replace(/\s+/g, " ") ===
+            normalizedExerciseName,
+        );
+
+        if (!found || !found.sets?.length) continue;
+
+        const bestSet = found.sets.reduce(
+          (prev, curr) =>
+            parseFloat(curr.weight || 0) > parseFloat(prev.weight || 0)
+              ? curr
+              : prev,
+          found.sets[0],
+        );
+
+        setLastEfforts((prev) => ({
+          ...prev,
+          [normalizedExerciseName]: bestSet,
+        }));
+
+        return;
+      }
+
+      // No previous effort found
+      setLastEfforts((prev) => ({
+        ...prev,
+        [normalizedExerciseName]: null,
+      }));
     } catch (err) {
       console.error("Error fetching last effort:", err);
     }
@@ -118,7 +201,9 @@ export default function WorkoutLogger() {
       if (saved) {
         try {
           const data = JSON.parse(saved);
-          const isToday = new Date(data.updatedAt).toDateString() === new Date().toDateString();
+          const isToday =
+            new Date(data.updatedAt).toDateString() ===
+            new Date().toDateString();
           if (data.userId === currentUser.uid && isToday) {
             setExercises(data.exercises);
             setWorkoutName(data.name);
@@ -133,27 +218,54 @@ export default function WorkoutLogger() {
         }
       }
 
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const q = query(
+      const todayKey = getTodayKey();
+
+      // First, look for today's newer session using sessionDate.
+      const sessionDateQuery = query(
         collection(db, "workouts"),
         where("userId", "==", currentUser.uid),
-        where("timestamp", ">=", now),
-        orderBy("timestamp", "desc"),
-        limit(1)
+        where("sessionDate", "==", todayKey),
+        limit(1),
       );
-      const snap = await getDocs(q);
+
+      let snap = await getDocs(sessionDateQuery);
+
+      // If there is no sessionDate match,
+      // check older workout records created today.
+      if (snap.empty) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const legacyQuery = query(
+          collection(db, "workouts"),
+          where("userId", "==", currentUser.uid),
+          where("timestamp", ">=", now),
+          orderBy("timestamp", "desc"),
+          limit(1),
+        );
+
+        snap = await getDocs(legacyQuery);
+      }
+
       if (!snap.empty) {
         const d = snap.docs[0];
         const data = d.data();
+
         setExercises(data.exercises);
         setWorkoutName(data.name);
         setIntensity(data.intensity || "MODERATE");
         setSessionId(d.id);
         setIsActive(true);
+
         toast.success("Resuming Today's Session!");
       } else {
-        setExercises([{ id: 1, name: "", sets: [{ reps: 0, weight: 0 }] }]);
+        setExercises([
+          {
+            id: 1,
+            name: "",
+            sets: [{ reps: 0, weight: 0 }],
+          },
+        ]);
       }
     };
 
@@ -167,14 +279,14 @@ export default function WorkoutLogger() {
       return;
     }
 
-    const hasEmptyNames = exercises.some(ex => !ex.name.trim());
+    const hasEmptyNames = exercises.some((ex) => !ex.name.trim());
     if (hasEmptyNames) {
       toast.error("All exercises must have a name.");
       return;
     }
 
-    const hasInvalidSets = exercises.some(ex => 
-      ex.sets.some(s => parseFloat(s.weight) <= 0 || parseInt(s.reps) <= 0)
+    const hasInvalidSets = exercises.some((ex) =>
+      ex.sets.some((s) => parseFloat(s.weight) <= 0 || parseInt(s.reps) <= 0),
     );
     if (hasInvalidSets) {
       toast.error("All sets must have weight and reps > 0.");
@@ -183,58 +295,59 @@ export default function WorkoutLogger() {
 
     setLoading(true);
     try {
-      const prs = await detectPRs({
-        userId: currentUser.uid,
-        exercises,
-        currentSessionId: sessionId,
-      });
-
-      console.log("Detected PRs:", prs);
+      if (navigator.onLine) {
+        detectPRs({
+          userId: currentUser.uid,
+          exercises,
+          currentSessionId: sessionId,
+        })
+          // eslint-disable-next-line no-unused-vars
+          .then((detectedPRs) => {
+            // PR detection runs without blocking workout saving.
+            // We'll connect these results to the UI later.
+          })
+          .catch((error) => {
+            console.warn("PR detection failed:", error);
+          });
+      } else {
+        // PR detection is skipped while offline.
+      }
 
       const workoutData = {
         userId: currentUser.uid,
         name: workoutName || "Untitled Session",
         exercises,
         intensity,
-        timestamp: serverTimestamp(),
+        sessionDate: getTodayKey(),
+        timestamp: navigator.onLine ? serverTimestamp() : Timestamp.now(),
       };
 
       if (sessionId) {
-        await updateDoc(
-          doc(db, "workouts", sessionId),
-          workoutData
-        );
+        const workoutRef = doc(db, "workouts", sessionId);
 
-        toast.success("Workout Updated!");
-      } else {
-        const res = await addDoc(
-          collection(db, "workouts"),
-          workoutData
-        );
-
-        setSessionId(res.id);
-
-        toast.success("Workout Recorded!");
-      }
-
-      // Temporary testing only.
-      // We'll replace this with the real FCM notification later.
-      if (prs.length > 0) {
-        console.log("NEW PR DETECTED");
-
-        prs.forEach((pr) => {
-          if (pr.type === "weight") {
-            console.log(
-              `${pr.exercise}: ${pr.newWeight} KG x ${pr.reps}`
-            );
-          }
-
-          if (pr.type === "reps") {
-            console.log(
-              `${pr.exercise}: ${pr.weight} KG x ${pr.newReps} reps`
-            );
-          }
+        updateDoc(workoutRef, workoutData).catch((error) => {
+          console.error("Workout sync failed:", error);
         });
+
+        toast.success(
+          navigator.onLine
+            ? "Workout Updated!"
+            : "Workout Updated Offline — will sync when online.",
+        );
+      } else {
+        const workoutRef = doc(collection(db, "workouts"));
+
+        setDoc(workoutRef, workoutData).catch((error) => {
+          console.error("Workout sync failed:", error);
+        });
+
+        setSessionId(workoutRef.id);
+
+        toast.success(
+          navigator.onLine
+            ? "Workout Recorded!"
+            : "Workout Recorded Offline — will sync when online.",
+        );
       }
 
       localStorage.removeItem(STORAGE_KEY);
@@ -257,11 +370,15 @@ export default function WorkoutLogger() {
 
   return (
     <Layout>
-      <div className={`space-y-8 transition-all duration-500 pb-12 ${isActive ? "kinetic-glow" : ""}`}>
+      <div
+        className={`space-y-8 transition-all duration-500 pb-12 ${isActive ? "kinetic-glow" : ""}`}
+      >
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className={`w-1.5 h-6 rounded-full ${isActive ? "bg-primary animate-pulse" : "bg-surface-variant group-hover:bg-primary transition-colors"}`} />
+              <div
+                className={`w-1.5 h-6 rounded-full ${isActive ? "bg-primary animate-pulse" : "bg-surface-variant group-hover:bg-primary transition-colors"}`}
+              />
               <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">
                 Workout <span className="text-secondary italic">Logger</span>
               </h1>
@@ -271,11 +388,19 @@ export default function WorkoutLogger() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant={isActive ? "secondary" : "primary"} onClick={isActive ? handleCancel : () => setIsActive(true)} className="px-8 font-black italic rounded-2xl h-14">
+            <Button
+              variant={isActive ? "secondary" : "primary"}
+              onClick={isActive ? handleCancel : () => setIsActive(true)}
+              className="px-8 font-black italic rounded-2xl h-14"
+            >
               {isActive ? "CANCEL" : "START WORKOUT"}
             </Button>
             {isActive && (
-              <Button onClick={handleFinish} disabled={loading} className="px-8 font-black italic shadow-lg shadow-primary/20 rounded-2xl h-14">
+              <Button
+                onClick={handleFinish}
+                disabled={loading}
+                className="px-8 font-black italic shadow-lg shadow-primary/20 rounded-2xl h-14"
+              >
                 {loading ? "SAVING..." : "FINISH"}
               </Button>
             )}
@@ -287,7 +412,9 @@ export default function WorkoutLogger() {
             {/* Header Settings */}
             <div className="flex flex-col sm:flex-row gap-6 p-6 bg-surface-container-low/40 rounded-3xl border border-white/5 backdrop-blur-sm">
               <div className="flex-1 space-y-2">
-                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">WORKOUT NAME</label>
+                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">
+                  WORKOUT NAME
+                </label>
                 <input
                   type="text"
                   value={workoutName}
@@ -297,19 +424,27 @@ export default function WorkoutLogger() {
                 />
               </div>
               <div className="space-y-3 w-full sm:w-80">
-                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">Workout Intensity</label>
+                <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">
+                  Workout Intensity
+                </label>
                 <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 w-full">
                   <button
                     onClick={() => setIntensity("LIGHT")}
                     className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "LIGHT" ? "bg-secondary text-white shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
                   >
-                    <Leaf className={`w-3.5 h-3.5 ${intensity === "LIGHT" ? "animate-bounce" : ""}`} /> LIGHT
+                    <Leaf
+                      className={`w-3.5 h-3.5 ${intensity === "LIGHT" ? "animate-bounce" : ""}`}
+                    />{" "}
+                    LIGHT
                   </button>
                   <button
                     onClick={() => setIntensity("HEAVY")}
                     className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "HEAVY" ? "bg-primary text-on-primary shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
                   >
-                    <Zap className={`w-3.5 h-3.5 ${intensity === "HEAVY" ? "animate-[pulse_1s_infinite]" : ""}`} /> HEAVY
+                    <Zap
+                      className={`w-3.5 h-3.5 ${intensity === "HEAVY" ? "animate-[pulse_1s_infinite]" : ""}`}
+                    />{" "}
+                    HEAVY
                   </button>
                 </div>
               </div>
@@ -329,7 +464,11 @@ export default function WorkoutLogger() {
                 />
               ))}
             </div>
-            <Button variant="secondary" onClick={addExercise} className="w-full py-6 text-sm font-label uppercase font-black italic gap-3 border-white/5 bg-white/5 hover:bg-white/10 rounded-3xl">
+            <Button
+              variant="secondary"
+              onClick={addExercise}
+              className="w-full py-6 text-sm font-label uppercase font-black italic gap-3 border-white/5 bg-white/5 hover:bg-white/10 rounded-3xl"
+            >
               <Dumbbell className="w-5 h-5 text-primary" /> ADD EXERCISE
             </Button>
           </div>
@@ -339,10 +478,18 @@ export default function WorkoutLogger() {
               <Timer className="w-12 h-12" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-black uppercase italic">AWAITING INPUT</h3>
-              <p className="text-sm font-label text-surface-variant uppercase tracking-widest font-bold opacity-60">Initiate workout sequence to record performance</p>
+              <h3 className="text-2xl font-black uppercase italic">
+                AWAITING INPUT
+              </h3>
+              <p className="text-sm font-label text-surface-variant uppercase tracking-widest font-bold opacity-60">
+                Initiate workout sequence to record performance
+              </p>
             </div>
-            <Button size="lg" onClick={() => setIsActive(true)} className="italic font-black px-12 h-16 rounded-2xl shadow-xl shadow-primary/10">
+            <Button
+              size="lg"
+              onClick={() => setIsActive(true)}
+              className="italic font-black px-12 h-16 rounded-2xl shadow-xl shadow-primary/10"
+            >
               START WORKOUT <Play className="ml-2 w-4 h-4 fill-current" />
             </Button>
           </div>
