@@ -4,22 +4,23 @@ import Button from "../components/common/Button";
 import { Play, Dumbbell, Timer, Zap, Leaf } from "lucide-react";
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/useAuth";
+import { useSearchParams } from "react-router-dom";
 import {
   collection,
   serverTimestamp,
   Timestamp,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
   updateDoc,
   setDoc,
   doc,
-  getDocsFromCache,
+  getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import toast from "react-hot-toast";
-import { detectPRs } from "../utils/pr";
+import {
+  detectPRs,
+  fetchExerciseStats,
+  normalizeExerciseName,
+} from "../utils/pr";
 
 // Modular Components
 import ExerciseCard from "../components/workout/ExerciseCard";
@@ -28,29 +29,83 @@ const STORAGE_KEY = "ft_active_session";
 
 export default function WorkoutLogger() {
   const { currentUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editWorkoutId = searchParams.get("edit");
+  const [isEditing, setIsEditing] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [workoutName, setWorkoutName] = useState("");
   const [exercises, setExercises] = useState([]);
   const [intensity, setIntensity] = useState("MODERATE");
-  const [lastEfforts, setLastEfforts] = useState({});
+  const [exerciseStats, setExerciseStats] = useState({});
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    if (isActive && currentUser) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          userId: currentUser.uid,
-          name: workoutName,
-          exercises,
-          intensity,
-          sessionId,
-          updatedAt: Date.now(),
-        }),
-      );
-    }
-  }, [isActive, workoutName, exercises, intensity, sessionId, currentUser]);
+    if (!sessionReady || !isActive || !currentUser) return;
+
+    const sessionData = {
+      userId: currentUser.uid,
+      name: workoutName,
+      exercises,
+      intensity,
+      status: "in_progress",
+
+      // Keep editing separate from creating a new workout.
+      sessionType: isEditing ? "edit" : "new",
+      targetWorkoutId: isEditing ? sessionId : null,
+
+      updatedAt: Date.now(),
+    };
+
+    // Immediate local backup for same-device recovery.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+
+    // Debounce Firestore writes to avoid saving on every keystroke.
+    const timeout = setTimeout(async () => {
+      try {
+        await setDoc(
+          doc(db, "workoutSessions", currentUser.uid),
+          {
+            ...sessionData,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (error) {
+        console.error("Failed to sync workout draft:", error);
+      }
+    }, 700);
+
+    return () => clearTimeout(timeout);
+  }, [
+    sessionReady,
+    isActive,
+    currentUser,
+    workoutName,
+    exercises,
+    intensity,
+    isEditing,
+    sessionId,
+  ]);
+
+  useEffect(() => {
+    if (!currentUser || !isActive) return;
+
+    const exerciseNames = [
+      ...new Set(
+        exercises
+          .map((ex) => normalizeExerciseName(ex.name))
+          .filter((name) => name.length >= 3),
+      ),
+    ];
+
+    exerciseNames.forEach((name) => {
+      if (!exerciseStats[name]) {
+        fetchExercisePerformance(name);
+      }
+    });
+  }, [exercises, currentUser, isActive, isEditing, sessionId]);
 
   const addExercise = () => {
     setExercises([
@@ -113,164 +168,277 @@ export default function WorkoutLogger() {
   };
 
   const handleExerciseNameChange = (exerciseId, name) => {
-    setExercises(
-      exercises.map((ex) => (ex.id === exerciseId ? { ...ex, name } : ex)),
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === exerciseId ? { ...ex, name } : ex)),
     );
-
-    if (name.length > 3) {
-      fetchLastEffort(name);
-    }
   };
 
-  const fetchLastEffort = async (exName) => {
-    if (!exName || exName.length < 3 || !currentUser?.uid) return;
+  const fetchExercisePerformance = async (exerciseName) => {
+    if (!exerciseName || exerciseName.trim().length < 3) return;
+
+    const normalizedName = normalizeExerciseName(exerciseName);
 
     try {
-      const q = query(
-        collection(db, "workouts"),
-        where("userId", "==", currentUser.uid),
-      );
+      const stats = await fetchExerciseStats({
+        userId: currentUser.uid,
+        exerciseName: normalizedName,
+        currentSessionId: isEditing ? sessionId : null,
+      });
 
-      let snapshot;
-
-      if (navigator.onLine) {
-        // Online: get the latest workout data from Firestore
-        snapshot = await getDocs(q);
-      } else {
-        // Offline: use workouts already stored in Firestore's local cache
-        snapshot = await getDocsFromCache(q);
-      }
-
-      const workouts = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .sort((a, b) => {
-          const aTime = a.timestamp?.toMillis?.() || 0;
-          const bTime = b.timestamp?.toMillis?.() || 0;
-
-          return bTime - aTime;
-        });
-
-      const normalizedExerciseName = exName
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, " ");
-
-      for (const workout of workouts) {
-        const found = (workout.exercises || []).find(
-          (exercise) =>
-            exercise.name?.toLowerCase().trim().replace(/\s+/g, " ") ===
-            normalizedExerciseName,
-        );
-
-        if (!found || !found.sets?.length) continue;
-
-        const bestSet = found.sets.reduce(
-          (prev, curr) =>
-            parseFloat(curr.weight || 0) > parseFloat(prev.weight || 0)
-              ? curr
-              : prev,
-          found.sets[0],
-        );
-
-        setLastEfforts((prev) => ({
-          ...prev,
-          [normalizedExerciseName]: bestSet,
-        }));
-
-        return;
-      }
-
-      // No previous effort found
-      setLastEfforts((prev) => ({
+      setExerciseStats((prev) => ({
         ...prev,
-        [normalizedExerciseName]: null,
+        [normalizedName]: stats,
       }));
-    } catch (err) {
-      console.error("Error fetching last effort:", err);
+    } catch (error) {
+      console.error("Error fetching exercise performance:", error);
     }
   };
 
   useEffect(() => {
     if (!currentUser) return;
 
+    let cancelled = false;
+
+    const getDate = (value) => {
+      if (!value) return null;
+
+      const date = value?.toDate ? value.toDate() : new Date(value);
+
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const isCompletedToday = (workout) => {
+      const completionDate = getDate(workout.completedAt || workout.timestamp);
+
+      return (
+        completionDate &&
+        completionDate.toDateString() === new Date().toDateString()
+      );
+    };
+
+    const restoreSession = (data, editing, targetId = null) => {
+      if (cancelled) return;
+
+      setWorkoutName(data.name || "");
+      setExercises(data.exercises || []);
+      setIntensity(data.intensity || "MODERATE");
+
+      setSessionId(editing ? targetId : null);
+      setIsEditing(editing);
+      setIsActive(true);
+    };
+
     const initLogger = async () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          const isToday =
-            new Date(data.updatedAt).toDateString() ===
-            new Date().toDateString();
-          if (data.userId === currentUser.uid && isToday) {
-            setExercises(data.exercises);
-            setWorkoutName(data.name);
-            setIntensity(data.intensity || "MODERATE");
-            setSessionId(data.sessionId);
-            setIsActive(true);
-            toast.success("Ready to continue!");
+      setSessionReady(false);
+
+      try {
+        // CASE 1: Explicitly opened Edit from History.
+        if (editWorkoutId) {
+          const workoutRef = doc(db, "workouts", editWorkoutId);
+          const workoutSnap = await getDoc(workoutRef);
+
+          if (cancelled) return;
+
+          if (!workoutSnap.exists()) {
+            toast.error("Workout not found.");
             return;
           }
-        } catch (e) {
-          console.error("Error parsing saved session", e);
+
+          const data = workoutSnap.data();
+
+          if (data.userId !== currentUser.uid) {
+            toast.error("You cannot edit this workout.");
+            return;
+          }
+
+          if (data.status && data.status !== "completed") {
+            toast.error("This workout cannot be edited.");
+            return;
+          }
+
+          if (!isCompletedToday(data)) {
+            toast.error("Only today's completed workouts can be edited.");
+            return;
+          }
+
+          restoreSession(data, true, workoutSnap.id);
+
+          toast.success("Workout loaded for editing!", {
+            id: `edit-workout-${workoutSnap.id}`,
+          });
+
+          return;
         }
-      }
 
-      const todayKey = getTodayKey();
+        // CASE 2: Look for an active Firestore draft.
+        const draftRef = doc(db, "workoutSessions", currentUser.uid);
 
-      // First, look for today's newer session using sessionDate.
-      const sessionDateQuery = query(
-        collection(db, "workouts"),
-        where("userId", "==", currentUser.uid),
-        where("sessionDate", "==", todayKey),
-        limit(1),
-      );
+        let firestoreDraft = null;
+        let firestoreAvailable = false;
 
-      let snap = await getDocs(sessionDateQuery);
+        try {
+          const draftSnap = await getDoc(draftRef);
 
-      // If there is no sessionDate match,
-      // check older workout records created today.
-      if (snap.empty) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
+          firestoreAvailable = true;
 
-        const legacyQuery = query(
-          collection(db, "workouts"),
-          where("userId", "==", currentUser.uid),
-          where("timestamp", ">=", now),
-          orderBy("timestamp", "desc"),
-          limit(1),
-        );
+          if (draftSnap.exists()) {
+            firestoreDraft = draftSnap.data();
+          }
+        } catch (error) {
+          console.warn(
+            "Could not load Firestore draft. Trying local backup.",
+            error,
+          );
+        }
 
-        snap = await getDocs(legacyQuery);
-      }
+        if (cancelled) return;
 
-      if (!snap.empty) {
-        const d = snap.docs[0];
-        const data = d.data();
+        // CASE 3: Read the local backup too.
+        let localDraft = null;
 
-        setExercises(data.exercises);
-        setWorkoutName(data.name);
-        setIntensity(data.intensity || "MODERATE");
-        setSessionId(d.id);
-        setIsActive(true);
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
 
-        toast.success("Resuming Today's Session!");
-      } else {
+          if (saved) {
+            localDraft = JSON.parse(saved);
+          }
+        } catch (error) {
+          console.warn("Invalid local workout backup:", error);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+
+        // Use the newest available draft.
+        let draft = firestoreDraft;
+
+        if (
+          localDraft?.userId === currentUser.uid &&
+          Array.isArray(localDraft.exercises)
+        ) {
+          const localTime = Number(localDraft.updatedAt) || 0;
+
+          const firestoreTime = firestoreDraft?.updatedAt?.toMillis
+            ? firestoreDraft.updatedAt.toMillis()
+            : 0;
+
+          if (!draft || localTime > firestoreTime) {
+            draft = localDraft;
+          }
+        }
+
+        if (
+          draft &&
+          draft.userId === currentUser.uid &&
+          draft.status === "in_progress" &&
+          Array.isArray(draft.exercises)
+        ) {
+          const sessionType =
+            draft.sessionType || (draft.isEditing ? "edit" : "new");
+
+          // Restore an edit draft only if its original workout
+          // is still editable today.
+          if (sessionType === "edit") {
+            const targetId = draft.targetWorkoutId || draft.sessionId;
+
+            if (targetId) {
+              const targetSnap = await getDoc(doc(db, "workouts", targetId));
+
+              if (cancelled) return;
+
+              if (
+                targetSnap.exists() &&
+                targetSnap.data().userId === currentUser.uid &&
+                (!targetSnap.data().status ||
+                  targetSnap.data().status === "completed") &&
+                isCompletedToday(targetSnap.data())
+              ) {
+                restoreSession(draft, true, targetId);
+
+                toast.success("Editing session restored!", {
+                  id: "restore-edit-session",
+                });
+
+                return;
+              }
+            }
+
+            // Invalid or expired edit draft.
+            localStorage.removeItem(STORAGE_KEY);
+
+            if (firestoreAvailable) {
+              try {
+                await deleteDoc(draftRef);
+              } catch (error) {
+                console.warn("Could not clear expired edit draft:", error);
+              }
+            }
+          }
+
+          // Restore an unfinished new workout.
+          else if (sessionType === "new") {
+            restoreSession(draft, false);
+
+            toast.success("Ready to continue!", {
+              id: "restore-active-workout",
+            });
+
+            return;
+          }
+        }
+
+        if (cancelled) return;
+
+        // No valid active draft exists.
+        if (firestoreAvailable) {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+
+        setWorkoutName("");
         setExercises([
           {
-            id: 1,
+            id: Date.now(),
             name: "",
             sets: [{ reps: 0, weight: 0 }],
           },
         ]);
+
+        setIntensity("MODERATE");
+        setSessionId(null);
+        setIsEditing(false);
+        setIsActive(false);
+      } catch (error) {
+        console.error("Error initializing Workout Logger:", error);
+        toast.error("Unable to load workout.");
+      } finally {
+        if (!cancelled) {
+          setSessionReady(true);
+        }
       }
     };
 
     initLogger();
-  }, [currentUser]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, editWorkoutId]);
+
+  const startNewWorkout = () => {
+    localStorage.removeItem(STORAGE_KEY);
+
+    setWorkoutName("");
+    setExercises([
+      {
+        id: Date.now(),
+        name: "",
+        sets: [{ reps: 0, weight: 0 }],
+      },
+    ]);
+
+    setIntensity("MODERATE");
+    setSessionId(null);
+    setIsEditing(false);
+    setIsActive(true);
+  };
 
   const handleFinish = async () => {
     // Validation
@@ -280,6 +448,7 @@ export default function WorkoutLogger() {
     }
 
     const hasEmptyNames = exercises.some((ex) => !ex.name.trim());
+
     if (hasEmptyNames) {
       toast.error("All exercises must have a name.");
       return;
@@ -288,31 +457,15 @@ export default function WorkoutLogger() {
     const hasInvalidSets = exercises.some((ex) =>
       ex.sets.some((s) => parseFloat(s.weight) <= 0 || parseInt(s.reps) <= 0),
     );
+
     if (hasInvalidSets) {
       toast.error("All sets must have weight and reps > 0.");
       return;
     }
 
     setLoading(true);
-    try {
-      if (navigator.onLine) {
-        detectPRs({
-          userId: currentUser.uid,
-          exercises,
-          currentSessionId: sessionId,
-        })
-          // eslint-disable-next-line no-unused-vars
-          .then((detectedPRs) => {
-            // PR detection runs without blocking workout saving.
-            // We'll connect these results to the UI later.
-          })
-          .catch((error) => {
-            console.warn("PR detection failed:", error);
-          });
-      } else {
-        // PR detection is skipped while offline.
-      }
 
+    try {
       const workoutData = {
         userId: currentUser.uid,
         name: workoutName || "Untitled Session",
@@ -320,14 +473,15 @@ export default function WorkoutLogger() {
         intensity,
         sessionDate: getTodayKey(),
         timestamp: navigator.onLine ? serverTimestamp() : Timestamp.now(),
+        completedAt: navigator.onLine ? serverTimestamp() : Timestamp.now(),
+        status: "completed",
       };
-
+      let savedWorkoutId = sessionId;
+      // Existing workout: update the same Firestore document.
       if (sessionId) {
         const workoutRef = doc(db, "workouts", sessionId);
 
-        updateDoc(workoutRef, workoutData).catch((error) => {
-          console.error("Workout sync failed:", error);
-        });
+        await updateDoc(workoutRef, workoutData);
 
         toast.success(
           navigator.onLine
@@ -335,13 +489,11 @@ export default function WorkoutLogger() {
             : "Workout Updated Offline — will sync when online.",
         );
       } else {
+        // New workout: create a new Firestore document.
+        savedWorkoutId = workoutRef.id;
         const workoutRef = doc(collection(db, "workouts"));
 
-        setDoc(workoutRef, workoutData).catch((error) => {
-          console.error("Workout sync failed:", error);
-        });
-
-        setSessionId(workoutRef.id);
+        await setDoc(workoutRef, workoutData);
 
         toast.success(
           navigator.onLine
@@ -350,21 +502,79 @@ export default function WorkoutLogger() {
         );
       }
 
-      localStorage.removeItem(STORAGE_KEY);
+      // PR detection runs after the workout has been saved.
+      if (navigator.onLine) {
+        detectPRs({
+          userId: currentUser.uid,
+          exercises,
+          currentSessionId: savedWorkoutId,
+        }).catch((error) => {
+          console.warn("PR detection failed:", error);
+        });
+      }
+
+      // Clear active session only after successful save.
+      // Stop autosaving and clear the local backup.
       setIsActive(false);
+      setIsEditing(false);
+      setSessionId(null);
+      localStorage.removeItem(STORAGE_KEY);
+
+      // Remove the Firestore draft only after the workout
+      // has been successfully saved.
+      try {
+        await deleteDoc(doc(db, "workoutSessions", currentUser.uid));
+      } catch (draftError) {
+        console.error("Failed to delete workout draft:", draftError);
+        toast.error("Workout saved, but draft cleanup failed.");
+      }
+
+      // Remove explicit edit URL after successful save.
+      if (editWorkoutId) {
+        setSearchParams({}, { replace: true });
+      }
     } catch (error) {
-      console.error("Workout save/PR detection failed:", error);
+      console.error("Workout save failed:", error);
       toast.error("Failed to save: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    if (window.confirm("Abandon current session data?")) {
-      localStorage.removeItem(STORAGE_KEY);
-      setIsActive(false);
-      setExercises([{ id: 1, name: "", sets: [{ reps: 0, weight: 0 }] }]);
+  const handleCancel = async () => {
+    if (!window.confirm("Abandon current session data?")) {
+      return;
+    }
+
+    // Stop the autosave effect and clear the local backup.
+    setIsActive(false);
+    setIsEditing(false);
+    setSessionId(null);
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    setWorkoutName("");
+    setIntensity("MODERATE");
+
+    setExercises([
+      {
+        id: Date.now(),
+        name: "",
+        sets: [{ reps: 0, weight: 0 }],
+      },
+    ]);
+
+    // Remove only the active draft.
+    // The original completed workout remains untouched.
+    try {
+      await deleteDoc(doc(db, "workoutSessions", currentUser.uid));
+    } catch (error) {
+      console.error("Failed to delete workout draft:", error);
+      toast.error("Could not completely clear the saved draft.");
+    }
+
+    if (editWorkoutId) {
+      setSearchParams({}, { replace: true });
     }
   };
 
@@ -390,7 +600,7 @@ export default function WorkoutLogger() {
           <div className="flex items-center gap-4">
             <Button
               variant={isActive ? "secondary" : "primary"}
-              onClick={isActive ? handleCancel : () => setIsActive(true)}
+              onClick={isActive ? handleCancel : startNewWorkout}
               className="px-8 font-black italic rounded-2xl h-14"
             >
               {isActive ? "CANCEL" : "START WORKOUT"}
@@ -427,23 +637,39 @@ export default function WorkoutLogger() {
                 <label className="text-[9px] font-label uppercase tracking-widest text-surface-variant font-black">
                   Workout Intensity
                 </label>
-                <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 w-full">
+
+                <div className="grid grid-cols-2 gap-2 w-full">
                   <button
                     onClick={() => setIntensity("LIGHT")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "LIGHT" ? "bg-secondary text-white shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                      intensity === "LIGHT"
+                        ? "bg-secondary text-white border-secondary shadow-lg shadow-secondary/20"
+                        : "bg-secondary/10 text-secondary border-secondary/30 hover:bg-secondary/20"
+                    }`}
                   >
                     <Leaf
-                      className={`w-3.5 h-3.5 ${intensity === "LIGHT" ? "animate-bounce" : ""}`}
-                    />{" "}
+                      className={`w-4 h-4 ${
+                        intensity === "LIGHT" ? "animate-bounce" : ""
+                      }`}
+                    />
                     LIGHT
                   </button>
+
                   <button
                     onClick={() => setIntensity("HEAVY")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${intensity === "HEAVY" ? "bg-primary text-on-primary shadow-lg scale-[0.98]" : "text-surface-variant hover:text-white"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                      intensity === "HEAVY"
+                        ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20"
+                        : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                    }`}
                   >
                     <Zap
-                      className={`w-3.5 h-3.5 ${intensity === "HEAVY" ? "animate-[pulse_1s_infinite]" : ""}`}
-                    />{" "}
+                      className={`w-4 h-4 ${
+                        intensity === "HEAVY"
+                          ? "animate-[pulse_1s_infinite]"
+                          : ""
+                      }`}
+                    />
                     HEAVY
                   </button>
                 </div>
@@ -460,7 +686,7 @@ export default function WorkoutLogger() {
                   onRemoveSet={removeSet}
                   onUpdateSet={updateSet}
                   onNameChange={handleExerciseNameChange}
-                  lastEffort={lastEfforts[ex.name.toLowerCase()]}
+                  stats={exerciseStats[normalizeExerciseName(ex.name)]}
                 />
               ))}
             </div>
@@ -487,7 +713,7 @@ export default function WorkoutLogger() {
             </div>
             <Button
               size="lg"
-              onClick={() => setIsActive(true)}
+              onClick={startNewWorkout}
               className="italic font-black px-12 h-16 rounded-2xl shadow-xl shadow-primary/10"
             >
               START WORKOUT <Play className="ml-2 w-4 h-4 fill-current" />

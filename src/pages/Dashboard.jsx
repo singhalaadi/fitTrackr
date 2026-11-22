@@ -68,21 +68,7 @@ export default function Dashboard() {
     if (!loading && userData && !userData.profileComplete) {
       navigate("/onboarding");
     }
-
-    const savedSession = localStorage.getItem("ft_active_session");
-    if (savedSession && currentUser) {
-      try {
-        const data = JSON.parse(savedSession);
-        const isToday =
-          new Date(data.updatedAt).toDateString() === new Date().toDateString();
-        if (data.userId === currentUser.uid && isToday) {
-          navigate("/workout");
-        }
-      } catch {
-        // console.error("Error parsing saved session:", e);
-      }
-    }
-  }, [userData, loading, navigate, currentUser]);
+  }, [userData, loading, navigate]);
 
   // Register Firebase Messaging Service Worker
   useEffect(() => {
