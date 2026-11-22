@@ -489,9 +489,11 @@ export default function WorkoutLogger() {
             : "Workout Updated Offline — will sync when online.",
         );
       } else {
-        // New workout: create a new Firestore document.
-        savedWorkoutId = workoutRef.id;
+        // Create a new workout document first.
         const workoutRef = doc(collection(db, "workouts"));
+
+        // Store its ID for PR detection.
+        savedWorkoutId = workoutRef.id;
 
         await setDoc(workoutRef, workoutData);
 
